@@ -2,8 +2,10 @@
 import sys
 import unicodecsv as csv
 import networkx as nx
-from TwitterAPI import TwitterAPI
+
 import tweepy
+import ConfigParser, os
+
 from datetime import datetime, timedelta
 import mytools as tt
 
@@ -17,21 +19,28 @@ else:
 def main():
     logger = logging.getLogger('main')
 
-
     logger.info('Starting Process')
 
+    logger.info('Reading ini file')
+    config = ConfigParser.RawConfigParser()
+    config.read('config.ini')
 
-    consumer_key = 'K2wfbN34XTNuVtuytSIMB9C7e'
-    consumer_secret = 'Qx18atZ8VFUbSBb0jrjWnhq9f2owCGmDBBmwCtBv3itUr4ho3H'
+    consumer_key = config.get('credentials','consumer_key')
+    consumer_secret = config.get('credentials','consumer_secret')
 
-    access_token_key = '1279848349-KgTSpI9JE8ffKc6fQBtXHgDCvbLdNzQYUaZIZcz'
+    access_token = config.get('credentials','access_token')
 
-    access_token_secret = 'HCB9dlspxPI9BQlgSFpJkGlVGTBQblxmNTo1qYCEjic27'
+    access_token_secret = config.get('credentials','access_token_secret')
 
-    api = TwitterAPI(consumer_key, consumer_secret, access_token_key, access_token_secret)
-    r = api.request('search/tweets', {'q': 'pizza'})
-    # print r.status_code
-    logger.info("Connected to Twitter Api: %s",r.status_code)
+    logger.info('Authenticating')
+    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+    auth.set_access_token(access_token, access_token_secret)
+
+    api = tweepy.API(auth, wait_on_rate_limit=True)
+
+    user = api.get_user('eeftychiou')
+
+    logger.info("Connected to Twitter Api: %s",user.status.text)
 
 
     searchTerms = 'refugee OR réfugié OR rifugiato OR flüchtling OR flykting OR ' \
