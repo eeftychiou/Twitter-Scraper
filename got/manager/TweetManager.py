@@ -1,6 +1,10 @@
 import urllib,urllib2,json,re,datetime,sys,cookielib
 from .. import models
 from pyquery import PyQuery
+import logging
+
+TMlogger = logging.getLogger('TM')
+
 
 class TweetManager:
 	
@@ -9,6 +13,7 @@ class TweetManager:
 		
 	@staticmethod
 	def getTweets(tweetCriteria, receiveBuffer=None, bufferLength=100, proxy=None):
+		TMlogger.info('getTweets * Entered*')
 		refreshCursor = ''
 	
 		results = []
@@ -39,9 +44,12 @@ class TweetManager:
 				tweet = models.Tweet()
 				
 				usernameTweet = tweetPQ("span:first.username.u-dir b").text()
+				userid = tweetPQ.attr("data-user-id")
+				conversationId = tweetPQ.attr("data-conversation-id")
 				txt = re.sub(r"\s+", " ", tweetPQ("p.js-tweet-text").text().replace('# ', '#').replace('@ ', '@'))
 				retweets = int(tweetPQ("span.ProfileTweet-action--retweet span.ProfileTweet-actionCount").attr("data-tweet-stat-count").replace(",", ""))
 				favorites = int(tweetPQ("span.ProfileTweet-action--favorite span.ProfileTweet-actionCount").attr("data-tweet-stat-count").replace(",", ""))
+				replies = int(tweetPQ("span.ProfileTweet-action--reply span.ProfileTweet-actionCount").attr("data-tweet-stat-count").replace(",", ""))
 				dateSec = int(tweetPQ("small.time span.js-short-timestamp").attr("data-time"))
 				id = tweetPQ.attr("data-tweet-id")
 				permalink = tweetPQ.attr("data-permalink-path")
@@ -50,21 +58,42 @@ class TweetManager:
 				geoSpan = tweetPQ('span.Tweet-geo')
 				if len(geoSpan) > 0:
 					geo = geoSpan.attr('title')
-				
+
+				tweet.data['id'] = id
+				tweet.data['userid'] = userid
+				tweet.data['conversationId'] = conversationId
+				tweet.data['permalink'] = 'https://twitter.com' + permalink
+				tweet.data['username'] = usernameTweet
+				tweet.data['text'] = txt
+				tweet.data['date'] = datetime.datetime.fromtimestamp(dateSec)
+				tweet.data['retweets'] = retweets
+				tweet.data['favorites'] = favorites
+				tweet.data['replies'] = replies
+				tweet.data['mentions'] = " ".join(re.compile('(@\\w*)').findall(tweet.data['text']))
+				tweet.data['hashtags'] = " ".join(re.compile('(#\\w*)').findall(tweet.data['text']))
+				tweet.data['geo'] = geo
+
+				#TODO remove and use only dictionary
 				tweet.id = id
+				tweet.userID = userid
+				tweet.conversationId = conversationId
 				tweet.permalink = 'https://twitter.com' + permalink
 				tweet.username = usernameTweet
 				tweet.text = txt
 				tweet.date = datetime.datetime.fromtimestamp(dateSec)
 				tweet.retweets = retweets
 				tweet.favorites = favorites
+				tweet.replies = replies
 				tweet.mentions = " ".join(re.compile('(@\\w*)').findall(tweet.text))
 				tweet.hashtags = " ".join(re.compile('(#\\w*)').findall(tweet.text))
 				tweet.geo = geo
 				
 				results.append(tweet)
 				resultsAux.append(tweet)
-				
+
+				if len(results) % 100 == 0:
+					TMlogger.info('Got %i tweets', len(results))
+
 				if receiveBuffer and len(resultsAux) >= bufferLength:
 					receiveBuffer(resultsAux)
 					resultsAux = []
@@ -128,6 +157,9 @@ class TweetManager:
 			response = opener.open(url)
 			jsonResponse = response.read()
 		except:
+			TMlogger.info('Exception * Entered*')
+			TMlogger.error("Exception occurred", exc_info=True)
+			TMlogger.error('Response[%s]', response)
 			print "Twitter weird response. Try to see on browser: https://twitter.com/search?q=%s&src=typd" % urllib.quote(urlGetData)
 			sys.exit()
 			return
