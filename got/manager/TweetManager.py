@@ -139,7 +139,7 @@ class TweetManager:
 
 		headers = [
 			('Host', "twitter.com"),
-			('User-Agent', "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"),
+			('User-Agent', "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.37"),
 			('Accept', "application/json, text/javascript, */*; q=0.01"),
 			('Accept-Language', "de,en-US;q=0.7,en;q=0.3"),
 			('X-Requested-With', "XMLHttpRequest"),
@@ -159,8 +159,8 @@ class TweetManager:
 		except:
 			TMlogger.info('Exception * Entered*')
 			TMlogger.error("Exception occurred", exc_info=True)
-			TMlogger.error('Response[%s]', response)
-			print "Twitter weird response. Try to see on browser: https://twitter.com/search?q=%s&src=typd" % urllib.quote(urlGetData)
+
+			TMlogger.error( "Twitter weird response. Try to see on browser: https://twitter.com/search?q=%s&src=typd" % urllib.quote(urlGetData))
 			sys.exit()
 			return
 		
