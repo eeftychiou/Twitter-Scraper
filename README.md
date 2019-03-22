@@ -1,5 +1,6 @@
-# Get Old Tweets Programatically
-A project written in Python to get old tweets, it bypass some limitations of Twitter Official API.
+# Twitter-Scraper
+Uses urlib to scrap tweets of twitter websearch and then uses the API to get full details of each tweet saving it to a database.
+This is WIP. 
 
 ## Details
 Twitter Official API has the bother limitation of time constraints, you can't get older tweets than a week. Some tools provide access to older tweets but in the most of them you have to spend some money before.
