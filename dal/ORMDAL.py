@@ -1,14 +1,13 @@
-import sqlite3
-import ConfigParser
-import logging, os, sys
-from datetime import datetime, date
-from tweet import Tweet, Job, User
-from base import Session, engine, Base
+import configparser
+import logging, sys, json
+from datetime import datetime
+from .tweet import Tweet, Job, User
+from .base import Session, engine, Base
 
 if sys.version_info[0] < 3:
-    import got
+    pass
 else:
-    import got3 as got
+    pass
 
 DLlogger = logging.getLogger('DL')
 
@@ -18,15 +17,16 @@ class TweetDal:
     def __init__(self):
         DLlogger.info('TweetDal * Init *')
         DLlogger.info('Reading DB ini file')
-        config = ConfigParser.RawConfigParser()
+        config = configparser.RawConfigParser()
         config.read('config.ini')
 
         Base.metadata.create_all(engine)
         self.session = Session()
 
-    def add_tweet(self, tweet):
+    def add_tweet(self, tweet, jsonstr):
         """
         :param tweet:  tweepy object making up a tweet
+               json : json object with additional information gathered from the scrapper if available
         :return:
         """
         DLlogger.info('insert_tweet ')
@@ -35,19 +35,28 @@ class TweetDal:
         tweet_obj = Tweet(id=tweet.id,
                           created_at=tweet.created_at)
 
-        if hasattr(tweet, "text"): tweet_obj.text = tweet.text
+        twScrap = json.loads(jsonstr)
+
+        if tweet.truncated:
+            tweet_obj.truncated=True
+            tweet_obj.text = twScrap['text']
+        else:
+            if hasattr(tweet, "text"): tweet_obj.text = tweet.text
         if hasattr(tweet, "source"): tweet_obj.source = tweet.source
         if hasattr(tweet, "in_reply_to_status_id"):
             tweet_obj.in_reply_to_status_id = tweet.in_reply_to_status_id
             if not self.tweetExists(tweet_obj.in_reply_to_status_id) and tweet_obj.in_reply_to_status_id !=None:
-                self.add_job('tweet',tweet_obj.in_reply_to_status_id)
+                pdict={}
+                pdict['username'] = tweet.in_reply_to_screen_name
+                self.add_job('tweet',(tweet_obj.in_reply_to_status_id,json.dumps(pdict)))
 
         if hasattr(tweet, "in_reply_to_user_id"):
             tweet_obj.in_reply_to_user_id = tweet.in_reply_to_user_id
             if not self.userExists(tweet_obj.in_reply_to_user_id) and tweet_obj.in_reply_to_user_id != None:
-                self.add_job('user', tweet_obj.in_reply_to_user_id)
+                self.add_job('userApi', (tweet_obj.in_reply_to_user_id,None))
 
         if hasattr(tweet, "in_reply_to_screen_name"): tweet_obj.in_reply_to_screen_name = tweet.in_reply_to_screen_name
+
         if hasattr(tweet, "author"):
             tweet_obj.user_id = tweet.author.id_str
             if not self.userExists(tweet_obj.user_id):
@@ -73,7 +82,11 @@ class TweetDal:
         if hasattr(tweet,"quoted_status_id_str"):
             tweet_obj.quoted_status_id = tweet.quoted_status_id_str
             if not self.tweetExists(tweet_obj.quoted_status_id) and tweet_obj.quoted_status_id != None:
-                self.add_job('tweet', tweet_obj.quoted_status_id)
+                pdict={}
+                pdict['username'] = tweet.quoted_status.author.screen_name
+                self.add_job('tweet', (tweet_obj.quoted_status_id,json.dumps(pdict)))
+                if not self.userExists(tweet.quoted_status.author.id_str):
+                    self.add_user(tweet.quoted_status.author)
 
         if hasattr(tweet,"quoted_status"): tweet_obj.quoted_status = tweet.quoted_status.text
 
@@ -85,15 +98,18 @@ class TweetDal:
                 self.add_job('tweet',tweet_obj.retweeted_status)
 
         if hasattr(tweet, "quote_count"): tweet_obj.quote_count = tweet.quote_count
-        if hasattr(tweet, "reply_count"): tweet_obj.reply_count = tweet.reply_count
+        tweet_obj.reply_count = twScrap['replies'] or 0
+
         if hasattr(tweet, "retweet_count"): tweet_obj.retweet_count = tweet.retweet_count
         if hasattr(tweet, "favorite_count"): tweet_obj.favorite_count = tweet.favorite_count
         if tweet.coordinates:  tweet_obj.coordinates = tweet.coordinates
 
+        tweet_obj.conversationid = twScrap['conversationid']
+
         self.session.add(tweet_obj)
 
         DLlogger.info('Tweet ID  %i added', tweet.id)
-        self.complete_job("tweet", tweet.id_str)
+        self.complete_job("tweetApi", tweet.id_str)
         self.session.commit()
 
     def add_job(self, jobtype, payload):
@@ -103,8 +119,8 @@ class TweetDal:
         :return:
         """
 
-        DLlogger.info('add_job - %s 0 %s', jobtype, payload)
-        job_obj = Job(job_type=jobtype, payload=payload)
+        DLlogger.info('add_job - %s - %s', jobtype, payload[0])
+        job_obj = Job(job_type=jobtype, payload=payload[0], json=payload[1])
         self.session.add(job_obj)
         self.session.commit()
 
@@ -117,10 +133,10 @@ class TweetDal:
         DLlogger.info('add_jobs[%s] -  Number: %i', jobtype, len(jobs))
         jobList = []
         for jobid in jobs:
-            jobList.append(Job(job_type=jobtype, payload=jobid))
+            jobList.append(Job(job_type=jobtype, payload=jobid[0], json=jobid[1]))
 
         self.session.bulk_save_objects(jobList)
-        self.session.commit()
+        #self.session.commit()
 
     def complete_job(self, jobtype, payload):
         """
@@ -136,7 +152,27 @@ class TweetDal:
             job_obj.end_date = end_date
             job_obj.status = 2
             self.session.add(job_obj)
-            self.session.commit()
+
+
+
+    def complete_jobs(self, jobtype, payload):
+        """
+        Completes the queue row corresponding to the jobtype and payload
+        :param jobtype:
+        :param payload:
+        :return:
+        """
+        end_date = str(datetime.now())
+
+        for item in payload:
+            job_obj = self.session.query(Job).filter(Job.job_type == jobtype).filter(Job.payload == item).first()
+
+            if job_obj:
+                job_obj.end_date = end_date
+                job_obj.status = 2
+                self.session.add(job_obj)
+
+        self.session.commit()
 
     def increament_job(self, jobtype, payload):
         """
@@ -155,7 +191,7 @@ class TweetDal:
             self.session.commit()
 
     def tweetExists(self, tweetID):
-        DLlogger.info('tweetExists - %s', tweetID)
+        DLlogger.info('tweetExists ')
 
         id = self.session.query(Tweet).filter_by(id=tweetID).first()
 
@@ -163,16 +199,28 @@ class TweetDal:
             DLlogger.info('There is no tweet named %s' % tweetID)
             return False
         else:
-            DLlogger.info('Tweet %s found in %s row(s)' % (tweetID, id))
+            DLlogger.info('Tweet %s found ' % tweetID)
+            return True
+
+    def jobExists(self, jobtype, tweetID):
+        DLlogger.info('tweetExists ')
+
+        id = self.session.query(Job).filter(Job.job_type == jobtype).filter(Job.payload==tweetID).first()
+
+        if id == None:
+            DLlogger.info('There is no job[%s] named %s' , jobtype, tweetID)
+            return False
+        else:
+            DLlogger.info('Job[%s] and id [%s] found ' ,jobtype, tweetID)
             return True
 
     def userExists(self, userID):
-        DLlogger.info('userExists - %s', userID)
+        DLlogger.info('userExists')
 
         id = self.session.query(User).filter_by(user_id=userID).first()
 
         if id == None:
-            DLlogger.info('There is no tweet named %s' % userID)
+            DLlogger.info('There is no user named %s' % userID)
             return False
         else:
             DLlogger.info('Tweet %s found' % userID)
@@ -191,14 +239,16 @@ class TweetDal:
             .filter(Job.job_type == jobtype).filter(Job.retries <= 3). \
             filter(Job.begin_date == None).limit(n)
 
-        idlist = []
+        idlist = {}
         for obj in jobs:
             obj.retries = obj.retries + 1
             obj.status = 1
             obj.begin_date = str(datetime.now())
-            idlist.append(obj.payload)
+            idlist[obj.payload]=obj.json
         self.session.bulk_save_objects(jobs)
         self.session.commit()
+
+        DLlogger.info('Found [%i] jobs ', len(idlist))
 
         return idlist
 
@@ -236,9 +286,10 @@ class TweetDal:
         if hasattr(user, "url"): user_obj.url = user.url
         if hasattr(user, "verified"): user_obj.verified = user.verified
 
+        try:
+            self.session.merge(user_obj)
+            self.complete_job("user", user_obj.user_id)
+            DLlogger.info('User ID  %s added', user_obj.user_id)
+        except Exception as e:
+            DLlogger.error('add_user * Exception[%s] in User ID  %s ', user_obj.user_id,str(e))
 
-        self.session.add(user_obj)
-
-        DLlogger.info('User ID  %s added', user_obj.user_id)
-        self.complete_job("user", user_obj.user_id)
-        self.session.commit()

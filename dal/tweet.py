@@ -1,6 +1,6 @@
-from sqlalchemy import Column, String, Integer, Date , UniqueConstraint, Boolean
+from sqlalchemy import Column, String, Integer, Date , UniqueConstraint, Boolean, JSON
 
-from base import Base
+from .base import Base
 
 
 class Tweet(Base):
@@ -38,7 +38,12 @@ class Tweet(Base):
     favorite_count = Column(Integer, default=0)
     contributors = Column(Boolean)
     lang = Column(String)
-    truncated = Column(String)
+    truncated = Column(Boolean)
+    conversationid = Column(String)
+    #Other fields relevant
+    hasMedia = Column(Integer)      #0 no media, 1 image 2 video/gif
+    fullURL = Column(String)        #fully expanded URL, exclude quoted tweets
+
 
 
     # def __init__(self, id ,created_at, text, source,in_reply_to_status_id):
@@ -54,6 +59,7 @@ class Job(Base):
     job_id = Column(Integer, primary_key=True, autoincrement=True)
     job_type = Column(String)
     payload = Column(String)
+    json = Column(JSON)
     status = Column(Integer, default=0)
     retries = Column(Integer, default=0)
     begin_date = Column(String)

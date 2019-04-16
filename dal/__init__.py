@@ -1,1 +1,1 @@
-from ORMDAL import TweetDal
+from .ORMDAL import TweetDal
