@@ -1,8 +1,9 @@
 import configparser
 import logging, sys, json
 from datetime import datetime
-from .tweet import Tweet, Job, User
+from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media
 from .base import Session, engine, Base
+import tools
 
 if sys.version_info[0] < 3:
     pass
@@ -41,26 +42,34 @@ class TweetDal:
             tweet_obj.truncated=True
             tweet_obj.text = twScrap['text']
         else:
+            tweet_obj.truncated = False
             if hasattr(tweet, "text"): tweet_obj.text = tweet.text
-        if hasattr(tweet, "source"): tweet_obj.source = tweet.source
-        if hasattr(tweet, "in_reply_to_status_id"):
-            tweet_obj.in_reply_to_status_id = tweet.in_reply_to_status_id
-            if not self.tweetExists(tweet_obj.in_reply_to_status_id) and tweet_obj.in_reply_to_status_id !=None:
-                pdict={}
-                pdict['username'] = tweet.in_reply_to_screen_name
-                self.add_job('tweet',(tweet_obj.in_reply_to_status_id,json.dumps(pdict)))
+            elif hasattr(tweet, "full_text"): tweet_obj.text = tweet.full_text
+            else:
+                DLlogger.error('insert_tweet * missing text')
+                sys.exit(1)
 
-        if hasattr(tweet, "in_reply_to_user_id"):
-            tweet_obj.in_reply_to_user_id = tweet.in_reply_to_user_id
-            if not self.userExists(tweet_obj.in_reply_to_user_id) and tweet_obj.in_reply_to_user_id != None:
-                self.add_job('userApi', (tweet_obj.in_reply_to_user_id,None))
+        if hasattr(tweet, "source"): tweet_obj.source = tweet.source
+
+        if hasattr(tweet, "in_reply_to_status_id"):  tweet_obj.in_reply_to_status_id = tweet.in_reply_to_status_id
+
+        if hasattr(tweet, "in_reply_to_user_id"): tweet_obj.in_reply_to_user_id = tweet.in_reply_to_user_id
 
         if hasattr(tweet, "in_reply_to_screen_name"): tweet_obj.in_reply_to_screen_name = tweet.in_reply_to_screen_name
 
+        if tweet_obj.in_reply_to_status_id:
+            tweet_obj.isReply = True
+        else:
+            tweet_obj.isReply = False
+
         if hasattr(tweet, "author"):
             tweet_obj.user_id = tweet.author.id_str
-            if not self.userExists(tweet_obj.user_id):
-                self.add_user(tweet.author)
+            tweet_obj.screen_name = tweet.author.screen_name
+            tweet_obj.isVerified = tweet.author.verified
+
+        if hasattr(tweet, "lang"):
+            tweet_obj.lang = tweet.lang
+
 
         if tweet.place:
             tweet_obj.place=1
@@ -79,38 +88,140 @@ class TweetDal:
         else:
             tweet_obj.place = 0
 
+        if hasattr(tweet,"quoted_status_id_str"): tweet_obj.quoted_status_id = tweet.quoted_status_id_str
+
+        if hasattr(tweet,"quoted_status"): tweet_obj.quoted_status = tweet.quoted_status.full_text
+
+        if hasattr(tweet, "is_quote_status"): tweet_obj.is_quote_status = tweet.is_quote_status
+
+        if  hasattr(tweet, "retweeted_status"):
+            tweet_obj.retweeted_status = tweet.quoted_status.retweeted_status.id
+            tweet_obj.isRetweet = True
+        else:
+            tweet_obj.isRetweet = False
+
+        if hasattr(tweet, "quote_count"): tweet_obj.quote_count = tweet.quote_count
+
+        tweet_obj.reply_count = twScrap['replies'] or 0
+
+        if hasattr(tweet, "retweet_count"): tweet_obj.retweet_count = tweet.retweet_count
+        if hasattr(tweet, "favorite_count"): tweet_obj.favorite_count = tweet.favorite_count
+        if tweet.coordinates:
+            if tweet.coordinates['type'] == 'Point':
+                tweet_obj.coordinates = ','.join((str(tweet.coordinates['coordinates'][0]),str(tweet.coordinates['coordinates'][1])))
+            else:
+                print("Non suppported coordinates type found")
+
+        tweet_obj.conversationid = twScrap['conversationid']
+        if tweet_obj.conversationid:
+            tweet_obj.isConversation = True
+        else:
+            tweet_obj.isConversation = False
+
+
+
+        #entities bools
+        if hasattr(tweet,"entities"):
+            if 'urls' in tweet.entities:
+                tweet_obj.hasURL = bool(len(tweet.entities['urls']))
+            else:
+                tweet_obj.hasURL = False
+
+            if 'hashtags' in tweet.entities:
+                tweet_obj.hasHashtag = bool(len(tweet.entities['hashtags']))
+            else:
+                tweet_obj.hasHashtag = False
+
+            if 'user_mentions' in tweet.entities:
+                tweet_obj.hasMentions = bool(len(tweet.entities['user_mentions']))
+            else:
+                tweet_obj.hasMentions = False
+
+            if 'symbols' in tweet.entities:
+                tweet_obj.hasSymbols = bool(len(tweet.entities['symbols']))
+            else:
+                tweet_obj.hasSymbols = False
+
+            if 'media' in tweet.entities:
+                tweet_obj.hasMedia = bool(len(tweet.entities['media']))
+            else:
+                tweet_obj.hasMedia = False
+
+        if hasattr(tweet,"possibly_sensitive"):
+            tweet_obj.isSensitive = tweet.possibly_sensitive
+
+
+
+        self.session.add(tweet_obj)
+        self.complete_job("tweetApi", tweet.id_str)
+        self.session.commit()
+
+        ######################################################
+        # Adding found tweets and users
+        ######################################################
+        if hasattr(tweet, "in_reply_to_status_id"):
+            tweet_obj.in_reply_to_status_id = tweet.in_reply_to_status_id
+            if not self.tweetExists(tweet_obj.in_reply_to_status_id) and tweet_obj.in_reply_to_status_id !=None:
+                pdict={}
+                pdict['username'] = tweet.in_reply_to_screen_name
+                self.add_job('tweet',(tweet_obj.in_reply_to_status_id,json.dumps(pdict)))
+                self.session.commit()
+
+        if hasattr(tweet, "in_reply_to_user_id"):
+            tweet_obj.in_reply_to_user_id = tweet.in_reply_to_user_id
+            if not self.userExists(tweet_obj.in_reply_to_user_id) and tweet_obj.in_reply_to_user_id != None:
+                self.add_job('userApi', (tweet_obj.in_reply_to_user_id,None))
+                self.session.commit()
+
+        if hasattr(tweet, "author"):
+            tweet_obj.user_id = tweet.author.id_str
+            if not self.userExists(tweet_obj.user_id):
+                self.add_user(tweet.author)
+                self.session.commit()
+
         if hasattr(tweet,"quoted_status_id_str"):
             tweet_obj.quoted_status_id = tweet.quoted_status_id_str
             if not self.tweetExists(tweet_obj.quoted_status_id) and tweet_obj.quoted_status_id != None:
                 pdict={}
                 pdict['username'] = tweet.quoted_status.author.screen_name
                 self.add_job('tweet', (tweet_obj.quoted_status_id,json.dumps(pdict)))
+                self.session.commit()
                 if not self.userExists(tweet.quoted_status.author.id_str):
                     self.add_user(tweet.quoted_status.author)
-
-        if hasattr(tweet,"quoted_status"): tweet_obj.quoted_status = tweet.quoted_status.text
-
-        if hasattr(tweet, "is_quote_status"): tweet_obj.is_quote_status = tweet.is_quote_status
+                    self.session.commit()
 
         if  hasattr(tweet, "retweeted_status"):
             tweet_obj.retweeted_status = tweet.quoted_status.retweeted_status.id
             if not self.tweetExists(tweet_obj.retweeted_status) and tweet_obj.retweeted_status !=None:
                 self.add_job('tweet',tweet_obj.retweeted_status)
+                self.session.commit()
 
-        if hasattr(tweet, "quote_count"): tweet_obj.quote_count = tweet.quote_count
-        tweet_obj.reply_count = twScrap['replies'] or 0
+        #####################
+        # Processing Entities
+        #####################
 
-        if hasattr(tweet, "retweet_count"): tweet_obj.retweet_count = tweet.retweet_count
-        if hasattr(tweet, "favorite_count"): tweet_obj.favorite_count = tweet.favorite_count
-        if tweet.coordinates:  tweet_obj.coordinates = tweet.coordinates
+        #Mentions
+        if tweet_obj.hasMentions:
+            for mention in tweet.entities['user_mentions']:
+                #add to jobs for processing if not present
+                if not self.userExists(mention['id']):
+                    self.add_job('userApi', (mention['id'],None))
+                self.add_mention(mention,tweet.id_str)
 
-        tweet_obj.conversationid = twScrap['conversationid']
+        if tweet_obj.hasURL:
+            for url in tweet.entities['urls']:
+                self.add_url(url, tweet.id_str)
 
-        self.session.add(tweet_obj)
+        if tweet_obj.hasHashtag:
+            for hashtag in tweet.entities['hashtags']:
+                self.add_hashtag(hashtag, tweet.id_str)
+
+        if tweet_obj.hasMedia:
+            for media in tweet.extended_entities['media']:
+                self.add_media(media,tweet.id_str)
 
         DLlogger.info('Tweet ID  %i added', tweet.id)
-        self.complete_job("tweetApi", tweet.id_str)
-        self.session.commit()
+
 
     def add_job(self, jobtype, payload):
         """
@@ -136,7 +247,76 @@ class TweetDal:
             jobList.append(Job(job_type=jobtype, payload=jobid[0], json=jobid[1]))
 
         self.session.bulk_save_objects(jobList)
-        #self.session.commit()
+        self.session.commit()
+
+    def add_mention(self, mention, tweet_id):
+        """
+        Adds a single mention to the mentions table
+        :param job:
+        :return:
+        """
+
+        DLlogger.info('add_mention - %s - %s',  mention['screen_name'])
+        men_obj = Mention(tweet_id=tweet_id, user_id=mention['id_str'], name = mention['name'], screen_name = mention['screen_name'])
+        self.session.add(men_obj)
+        self.session.commit()
+
+    def add_url(self, url, tweet_id):
+        """
+        Adds a single mention to the mentions table
+        :param job:
+        :return:
+        """
+
+        DLlogger.info('add_url - %s - %s', url['expanded_url'])
+        url_obj = Url(tweet_id=tweet_id, url=url['url'], expanded_url = url['expanded_url'], display_url = url['display_url'])
+        self.session.add(url_obj)
+        self.session.commit()
+
+    def add_hashtag(self, hashtag, tweet_id):
+        """
+        Adds a single mention to the mentions table
+        :param job:
+        :return:
+        """
+
+        DLlogger.info('add_hashtag - %s - %s', hashtag['text'])
+        has_obj = Hashtag(tweet_id=tweet_id, text=hashtag['text'])
+        self.session.add(has_obj)
+        self.session.commit()
+
+    def add_symbol(self, symbol, tweet_id):
+        """
+        Adds a single mention to the mentions table
+        :param job:
+        :return:
+        """
+
+        DLlogger.info('add_symbol - %s - %s', symbol['text'])
+        sym_obj = Symbol(tweet_id=tweet_id, text=symbol['text'])
+        self.session.add(sym_obj)
+        self.session.commit()
+
+    def add_media(self, media, tweet_id):
+        """
+        Adds a single mention to the mentions table
+        :param job:
+        :return:
+        """
+
+        DLlogger.info('add_media - %s - %s', media['expanded_url'])
+        med_obj = Media(tweet_id=tweet_id,
+                        display_url=media['display_url'],
+                        expanded_url = media['expanded_url'],
+                        id_str = media['id_str'],
+                        media_url= media['media_url'],
+                        media_url_https = media ['media_url_https'],
+                        source_status_id_str = media.get('source_status_id_str'),
+                        type = media['type']
+                        )
+        self.session.add(med_obj)
+        self.session.commit()
+
 
     def complete_job(self, jobtype, payload):
         """
@@ -151,7 +331,9 @@ class TweetDal:
         if job_obj:
             job_obj.end_date = end_date
             job_obj.status = 2
-            self.session.add(job_obj)
+            self.session.merge(job_obj)
+
+        self.session.commit()
 
 
 
@@ -185,8 +367,9 @@ class TweetDal:
         job_obj = self.session.query(Job).filter(Job.job_type == jobtype).filter(Job.payload == payload).first()
 
         if job_obj:
-            job_obj.end_date = end_date
-            job_obj.status = 2
+            job_obj.retries += 1
+            job_obj.status = 0
+            job_obj.begin_date = None
             self.session.add(job_obj)
             self.session.commit()
 
@@ -237,7 +420,7 @@ class TweetDal:
 
         jobs = self.session.query(Job).filter(Job.status == 0) \
             .filter(Job.job_type == jobtype).filter(Job.retries <= 3). \
-            filter(Job.begin_date == None).limit(n)
+            filter(Job.end_date == None).limit(n)
 
         idlist = {}
         for obj in jobs:
@@ -288,8 +471,11 @@ class TweetDal:
 
         try:
             self.session.merge(user_obj)
-            self.complete_job("user", user_obj.user_id)
+            self.complete_job("userApi", user_obj.user_id)
             DLlogger.info('User ID  %s added', user_obj.user_id)
+            self.session.commit()
         except Exception as e:
             DLlogger.error('add_user * Exception[%s] in User ID  %s ', user_obj.user_id,str(e))
+            print ('add_user * Exception[%s] in User ID  %s ' %user_obj.user_id,str(e))
+            self.session.rollback()
 

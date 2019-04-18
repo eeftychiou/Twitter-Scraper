@@ -4,7 +4,7 @@ class TweetCriteria:
     def __init__(self):
         self.maxTweets = 0
         self.topTweets = False
-        self.within = "15mi"
+        self.within = ""
 
     def setUsername(self, username):
         """Set username(s) of tweets author(s)
@@ -136,3 +136,10 @@ class TweetCriteria:
         """
         self.saveCommentsofComments = saveCommentsofComments
         return self
+
+    def getSettingsStr(self):
+
+        attrs = vars(self)
+
+        str = ', '.join("%s: %s" % item for item in attrs.items())
+        return str

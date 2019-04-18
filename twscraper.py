@@ -36,27 +36,32 @@ def main():
     saveComments = config.getboolean('webscraper','saveComments')
     saveCommentsofComments = config.getboolean('webscraper','saveCommentsofComments')
     maxComments  = config.getint('webscraper','maxComments')
+    webscraper = config.getboolean('webscraper','enabled')
 
     #get proxy settings
     useProxy = config.getboolean('webscraper', 'useProxy')
     getProxyList = config.getboolean("webscraper", 'getProxyList')
+    proxyRetries = config.getint('webscraper','retries')
     if getProxyList and useProxy:
         pManager = tools.ProxyManager('https://twitter.com/i/MeettheBlues/conversation/1108057971194556416?include_available_features=1&include_entities=1&max_position=&reset_error_state=false',
                                           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36')
         # Refresh the status of the proxies we pulled on initialization
         pManager.refresh_proxy_status()
         got.manager.TweetManager.proxies = pManager.get_proxies_key_value('alive',True)
-        got.manager.TweetManager.proxy_pool = cycle(got.manager.TweetManager.proxies)
+        got.manager.TweetManager.retries=proxyRetries
+        got.manager.TweetManager.proxiesWeights = [got.manager.TweetManager.retries] * len(got.manager.TweetManager.proxies)
     elif useProxy and not getProxyList:
         proxyList = config.items('proxyList')
         if len(proxyList)==0:
             logger.info('Incorrect Proxy configuration, not using proxy')
             useProxy=False
         else:
-            proxies = set()
-            [proxies.add(p[1]) for p in proxyList]
-            got.manager.TweetManager.proxies = list(proxies)
-            got.manager.TweetManager.proxy_pool = cycle(got.manager.TweetManager.proxies)
+            proxies = []
+            [proxies.append(p[1]) for p in proxyList]
+            got.manager.TweetManager.proxies = proxies
+            got.manager.TweetManager.proxiesWeights = [got.manager.TweetManager.retries] * len(
+                got.manager.TweetManager.proxies)
+
     elif not useProxy:
         logger.info('Not using proxy')
     else:
@@ -78,6 +83,7 @@ def main():
     dbacc = dal.TweetDal()
 
     TM = got.manager.TweetManager(DBSession=dbacc)
+    TM.useProxy=useProxy
 
     # start consumer and continue scrapping
     consumersEnabled = config.getboolean("consumers", 'enabled')
@@ -89,7 +95,9 @@ def main():
             TW_thread[op] = threading.Thread(target=TWconsumer, args=(op,))
             TW_thread[op].start()
 
-
+    if not webscraper:
+        logger.info("Websraper is disabled * exiting main thread *")
+        return
 
 
     #TODO load criteria from ini file
@@ -104,11 +112,21 @@ def main():
 
 
     # 15 replies or so
-    searchTerms = 'refugee crisis Venezuelan Usurper Maduro'
-    dateFrom = "2019-03-19"
-    dateToo = "2019-03-20"
+    # searchTerms = 'refugee crisis Venezuelan Usurper Maduro'
+    # dateFrom = "2019-03-19"
+    # dateToo = "2019-03-20"
 
-    interval = 5   #days to sample each search
+    # project tweets
+    searchTerms = 'displaced OR immigrant OR migrant OR migration OR refugee OR asylum seeker OR trafficking OR border'
+    dateFrom = "2015-08-25"
+    dateToo = "2015-09-09"
+
+    # mixed tweets 25 root tweets
+    # searchTerms = 'black hole heart'
+    # dateFrom = "2019-04-01"
+    # dateToo = "2019-04-03"
+
+    interval = 1   #days to sample each search
     maxTweetPerInterval = -1
 
     dtFrom = datetime.strptime(dateFrom,'%Y-%m-%d')
@@ -140,8 +158,6 @@ def main():
             setSaveComments(saveComments).\
             setMaxComments(maxComments).\
             setSaveCommentsofComments(saveCommentsofComments)
-
-
 
         tweets = TM.getTweets(tweetCriteria)
 
@@ -193,34 +209,40 @@ def TWconsumer(toggle):
     TWlogger.info("Connecting to Database")
     TWdbacc = dal.TweetDal()
 
-    TM = got.manager.TweetManager(DBSession=TWdbacc)
+    TMW = got.manager.TweetManager(DBSession=TWdbacc)
 
     #get proxy settings
     useProxy = config.getboolean('webscraper', 'useProxy')
     getProxyList = config.getboolean("webscraper", 'getProxyList')
+    proxyRetries = config.getint('webscraper', 'retries')
     if getProxyList and useProxy:
         pManager = tools.ProxyManager('https://twitter.com/i/MeettheBlues/conversation/1108057971194556416?include_available_features=1&include_entities=1&max_position=&reset_error_state=false',
                                           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36')
         # Refresh the status of the proxies we pulled on initialization
         pManager.refresh_proxy_status()
-        got.manager.TweetManager.proxies = pManager.get_proxies_key_value('alive',True)
-        got.manager.TweetManager.proxy_pool = cycle(got.manager.TweetManager.proxies)
+        TMW.proxies = pManager.get_proxies_key_value('alive',True)
+        TMW.retries = proxyRetries
+        TMW.proxiesWeights = [TMW.retries] * len(TMW.proxies)
+
     elif useProxy and not getProxyList:
         proxyList = config.items('proxyList')
         if len(proxyList)==0:
             TWlogger.info('Incorrect Proxy configuration, not using proxy')
             useProxy=False
         else:
-            proxies = set()
-            [proxies.add(p[1]) for p in proxyList]
-            got.manager.TweetManager.proxies = proxies
-            got.manager.TweetManager.proxy_pool = cycle(got.manager.TweetManager.proxies)
+            proxies = []
+            [proxies.append(p[1]) for p in proxyList]
+            TMW.proxies=proxies
+            TMW.proxiesWeights = [TMW.retries] * len(TMW.proxies)
     elif not useProxy:
         TWlogger.info('Not using proxy')
     else:
         TWlogger.info('Incorrect Proxy configuration,not using proxy')
         useProxy = False
 
+    TMW.useProxy=useProxy
+
+    time.sleep(60)
 
     Done = False
 
@@ -238,13 +260,19 @@ def TWconsumer(toggle):
         if toggle=='tweetApi':   #get tweet data from API with json and add to database
             TWlogger.info("tweetApi * Started")
             TWlogger.info("Tweepy Processing %i %ss",len(ids),  toggle)
-            api_tweets = api.statuses_lookup(list(ids.keys()), include_entities=True)
+            api_tweets = api.statuses_lookup(list(ids.keys()), include_entities=True, tweet_mode='extended')
             TWlogger.info("Adding Processed tweets to Database")
 
             for tweet in api_tweets:
-                if not TWdbacc.tweetExists(tweet.id_str):
-                    TWdbacc.add_tweet(tweet, ids[tweet.id_str])
-                    TWdbacc.session.commit()
+                try:
+                    if not TWdbacc.tweetExists(tweet.id_str):
+                        TWdbacc.add_tweet(tweet, ids[tweet.id_str])
+
+                except Exception as e:
+                    print ("Worker unable to process tweet ",tweet.id_str )
+                    TWlogger.error("tweetApi worker exception %s", str(e))
+                    TWdbacc.session.rollback()
+                TWdbacc.session.commit()
             TWlogger.info("Done Adding Processed tweets to Database")
             TWlogger.info("tweetApi * Finished")
 
@@ -256,16 +284,20 @@ def TWconsumer(toggle):
                 tweetCriteria = got.manager.TweetCriteria().setMaxTweets(-1). \
                     setSaveComments(True). \
                     setMaxComments(-1). \
-                    setUsername(json.loads(ids[scr_tweet])['username']).setStatusID(scr_tweet)
+                    setUsername(json.loads(ids[scr_tweet])['username']).\
+                    setStatusID(scr_tweet).setSaveCommentsofComments(False)
 
-                stTweet = TM.getStatusPage(tweetCriteria)
+                stTweet = TMW.getStatusPage(tweetCriteria)
 
                 if stTweet==None:
+                    TWlogger.info("TS * Could not scrape tweet [%s]", scr_tweet)
+
+                    TWdbacc.increament_job("tweet", scr_tweet)
                     continue
                 TWlogger.info("TS Done Processing Status Page of  %s with %i replies", scr_tweet, stTweet.replies)
                 if stTweet.replies:
                     TWlogger.info("TS Processing %i replies for %s", stTweet.replies, scr_tweet)
-                    tweets = TM.getComments(tweetCriteria)
+                    tweets = TMW.getComments(tweetCriteria)
                 else:
                     tweets=[]
 
@@ -278,7 +310,7 @@ def TWconsumer(toggle):
                     TWdbacc.add_jobs('tweetApi', tweetIDs)
 
                 TWdbacc.complete_job("tweet", scr_tweet)
-                TWdbacc.session.commit()
+
                 TWlogger.info("Done Adding Processed tweets to Database")
             TWlogger.info("tweet * Finished")
 
@@ -293,13 +325,18 @@ def TWconsumer(toggle):
                         user = api.get_user(user_id =userid)
                         try:
                             TWdbacc.add_user(user)
-                            TWdbacc.complete_job("userApi", userid)
-                        except Exception as e:
-                            print("userApi worker exception %s",str(e))
-                            TWlogger.error("userApi worker exception %s",str(e))
 
+                        except Exception as e:
+                            print("userApi worker exception ",str(e))
+                            TWlogger.error("userApi worker exception %s",str(e))
+                            TWdbacc.session.rollback()
+                            TWdbacc.increament_job('userApi',userid)
                         TWdbacc.session.commit()
                 except tweepy.TweepError as e:
+                    if e.api_code in [63,50]:
+                        TWdbacc.increament_job("userApi", userid)
+                        TWlogger.info('Tweepy Exception *UserApi [%s] Error Code: , %s',userid, e.reason)
+                        TWdbacc.session.commit()
                     print (e)
             TWlogger.info("user * Finished")
 

@@ -140,7 +140,10 @@ class TweetManager:
                         .strftime("%a %b %d %X +0000 %Y")
                     tweet.mentions = " ".join(re.compile('(@\\w*)').findall(tweet.text))
                     tweet.hashtags = " ".join(re.compile('(#\\w*)').findall(tweet.text))
-                    tweet.conversationId = tweetPQ.attr("data-conversation-id")
+                    if tweetPQ.attr("data-conversation-id") == tweet.id:
+                        tweet.conversationId = None
+                    else:
+                        tweet.conversationId = tweetPQ.attr("data-conversation-id")
 
                     geoSpan = tweetPQ('span.Tweet-geo')
                     if len(geoSpan) > 0:
@@ -185,7 +188,8 @@ class TweetManager:
                     commentsCriteria = TweetCriteria().setMaxTweets(tweetCriteria.maxTweets). \
                         setSaveComments(tweetCriteria.saveComments). \
                         setMaxComments(tweetCriteria.maxComments). \
-                        setUsername(tweet.username).setStatusID(tweet.id)
+                        setUsername(tweet.username).setStatusID(tweet.id).\
+                        setSaveCommentsofComments(tweetCriteria.saveCommentsofComments)
 
                     tcomments = self.getComments(commentsCriteria)
 
@@ -262,7 +266,7 @@ class TweetManager:
             ]
 
             if self.useProxy:
-                curproxy = random.choices(self.proxies)[0]
+                curproxy = random.choices(self.proxies, weights = self.proxiesWeights)[0]
                 opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx),urllib.request.ProxyHandler({'http': curproxy, 'https': curproxy}),
                                                      urllib.request.HTTPCookieProcessor(cookieJar))
             else:
@@ -282,7 +286,8 @@ class TweetManager:
                 done = True
             except URLError or TimeoutError as error:
                 self.TMlogger.info('UrlOpen Error [%s] ' % str(error) )
-                if self.useProxy: self.proxies.remove(curproxy)
+                if self.useProxy:
+                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
                 tries = tries + 1
                 if tries>=self.retries:
                     self.TMlogger.info("Exceeded retries")
@@ -326,6 +331,7 @@ class TweetManager:
         proxy: str, a proxy server to use
         debug: bool, output debug information
         """
+        self.TMlogger.info("getComments tweetCriteria: %s ", tweetCriteria.getSettingsStr())
         results = []
         resultsAux = []
         cookieJar = http.cookiejar.CookieJar()
@@ -379,7 +385,10 @@ class TweetManager:
                     .strftime("%a %b %d %X +0000 %Y")
                 tweet.mentions = " ".join(re.compile('(@\\w*)').findall(tweet.text))
                 tweet.hashtags = " ".join(re.compile('(#\\w*)').findall(tweet.text))
-                tweet.conversationId = tweetPQ.attr("data-conversation-id")
+                if tweetPQ.attr("data-conversation-id") == tweet.id:
+                    tweet.conversationId = None
+                else:
+                    tweet.conversationId = tweetPQ.attr("data-conversation-id")
 
                 geoSpan = tweetPQ('span.Tweet-geo')
                 if len(geoSpan) > 0:
@@ -422,7 +431,8 @@ class TweetManager:
                 commentsCriteria = TweetCriteria().setMaxTweets(tweetCriteria.maxTweets). \
                     setSaveComments(tweetCriteria.saveComments). \
                     setMaxComments(tweetCriteria.maxComments). \
-                    setUsername(tweet.username).setStatusID(tweet.id)
+                    setUsername(tweet.username).setStatusID(tweet.id).\
+                    setSaveCommentsofComments(tweetCriteria.saveCommentsofComments)
                 comments = self.getComments(commentsCriteria)
                 comments.extend(comments)
             if not jobExists:
@@ -436,6 +446,8 @@ class TweetManager:
         if receiveBuffer and len(resultsAux) > 0:
             receiveBuffer(resultsAux)
             resultsAux = []
+
+        self.TMlogger.info("getComments * Finished * Added[%i] tweets, Total [%i] ",len(results), len(self.tweets))
 
         return results
 
@@ -476,7 +488,7 @@ class TweetManager:
             ]
 
             if self.useProxy:
-                curproxy = random.choices(self.proxies)[0]
+                curproxy = random.choices(self.proxies, weights = self.proxiesWeights)[0]
                 opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx),urllib.request.ProxyHandler({'http': curproxy, 'https': curproxy}),
                                                      urllib.request.HTTPCookieProcessor(cookieJar))
             else:
@@ -498,7 +510,8 @@ class TweetManager:
                 done = True
             except URLError or TimeoutError as error:
                 self.TMlogger.info('UrlOpen Error [%s] ' % str(error))
-                if self.useProxy: self.proxies.remove(curproxy)
+                if self.useProxy:
+                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
                 tries = tries + 1
                 if tries >= self.retries:
                     self.TMlogger.info("Exceeded retries")
@@ -570,7 +583,7 @@ class TweetManager:
             ]
 
             if self.useProxy:
-                curproxy = random.choices(self.proxies)[0]
+                curproxy = random.choices(self.proxies, weights = self.proxiesWeights)[0]
                 opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx),urllib.request.ProxyHandler({'http': curproxy, 'https': curproxy}),
                                                      urllib.request.HTTPCookieProcessor(cookieJar))
             else:
@@ -590,7 +603,8 @@ class TweetManager:
                 return None
             except URLError or TimeoutError as error:
                 self.TMlogger.info('UrlOpen Error [%s] '% str(error))
-                if self.useProxy: self.proxies.remove(curproxy)
+                if self.useProxy:
+                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
                 tries = tries + 1
                 if tries >= self.retries:
                     self.TMlogger.info("Exceeded retries")
@@ -617,7 +631,13 @@ class TweetManager:
             # todo refactor into function given html tweet return tweet object
             usernames = tweetPQ("span.username.u-dir b").text().split()
             if not len(usernames):  # fix for issue #13
-                print("test")
+                self.TMlogger.Error("getStatusPage * Error while getting username [ %s ] ", url)
+                return None
+
+            if 'Learn' in tweetPQ("a.Tombstone-inlineAction").text().split():   #account suspended
+                self.TMlogger.info("getStatusPage * User Suspended [ %s ] ", url)
+                return None
+
 
             tweet.username = usernames[0]
             tweet.to = usernames[1] if len(usernames) >= 2 else None  # take the first recipient if many
@@ -641,7 +661,10 @@ class TweetManager:
                 .strftime("%a %b %d %X +0000 %Y")
             tweet.mentions = " ".join(re.compile('(@\\w*)').findall(tweet.text))
             tweet.hashtags = " ".join(re.compile('(#\\w*)').findall(tweet.text))
-            tweet.conversationId = tweetPQ.attr("data-conversation-id")
+            if tweetPQ.attr("data-conversation-id") == tweet.id:
+                tweet.conversationId = None
+            else:
+                tweet.conversationId = tweetPQ.attr("data-conversation-id")
 
             geoSpan = tweetPQ('span.Tweet-geo')
             if len(geoSpan) > 0:
@@ -661,6 +684,9 @@ class TweetManager:
             if tweet.id == tweetCriteria.statusID:
                 break
 
-        self.tweets[tweet.id] = tweet
+        if 'tweet' in locals():
+            self.tweets[tweet.id] = tweet
+            return tweet
+        else:
+            return None
 
-        return tweet or None

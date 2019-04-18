@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 
 import got3 as got
 
+def unshorten_url(url):
+    return requests.head(url, allow_redirects=True).url
 
 def daterange(start_date, end_date, interval):
 

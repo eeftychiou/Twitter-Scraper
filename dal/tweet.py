@@ -13,9 +13,11 @@ class Tweet(Base):
     in_reply_to_status_id = Column(String)
     in_reply_to_user_id = Column(String)
     in_reply_to_screen_name = Column(String)
+    isReply = Column(Boolean)
     user_id = Column(String)
+    screen_name = Column(String)
+    isVerified = Column(Boolean)
     coordinates = Column(String)
-
     place = Column(Integer)   # 1 if place details present otherwise 0
     place_country = Column(String)
     place_country_code = Column(String)
@@ -32,6 +34,7 @@ class Tweet(Base):
     is_quote_status = Column(Boolean)
     quoted_status = Column(String)
     retweeted_status = Column(String)
+    isRetweet = Column(Boolean)
     quote_count = Column(Integer, default=0)
     reply_count = Column(Integer, default=0)
     retweet_count = Column(Integer,default=0)
@@ -40,9 +43,15 @@ class Tweet(Base):
     lang = Column(String)
     truncated = Column(Boolean)
     conversationid = Column(String)
+    isConversation = Column(Boolean)
     #Other fields relevant
-    hasMedia = Column(Integer)      #0 no media, 1 image 2 video/gif
-    fullURL = Column(String)        #fully expanded URL, exclude quoted tweets
+    hasMedia = Column(Boolean, default=False)
+    hasURL = Column(Boolean, default=False)        #fully expanded URL, exclude quoted tweets
+    hasHashtag = Column(Boolean, default=False)
+    hasSymbols = Column(Boolean, default=False)
+    hasMentions = Column(Boolean, default=False)
+    hasPoll = Column(Boolean, default=False)
+    isSensitive = Column(Boolean, default=False)
 
 
 
@@ -110,12 +119,41 @@ class Mention(Base):
     name = Column(String)
     screen_name = Column(String)
 
+class Url(Base):
+    __tablename__ = 'urls'
+
+    id = Column(Integer, primary_key=True)
+    tweet_id = Column(String)
+    url = Column(String)
+    expanded_url = Column(String)
+    display_url = Column(String)
+
 class Hashtag(Base):
     __tablename__ = 'hashtags'
 
     id = Column(Integer, primary_key=True)
     tweet_id = Column(String)
     text = Column(String)
+
+class Symbol(Base):
+    __tablename__ = 'symbols'
+
+    id = Column(Integer, primary_key=True)
+    tweet_id = Column(String)
+    text = Column(String)
+
+class Media(Base):
+    __tablename__ = 'media'
+
+    id = Column(Integer, primary_key=True)
+    tweet_id = Column(String)
+    display_url = Column(String)
+    expanded_url = Column(String)
+    id_str = Column(String)
+    media_url = Column(String)
+    media_url_https = Column(String)
+    source_status_id_str = Column(String)
+    type = Column(String)
 
 
 

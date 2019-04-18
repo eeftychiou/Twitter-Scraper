@@ -12,7 +12,7 @@ config = configparser.RawConfigParser()
 config.read('config.ini')
 dbname = config.get('database', 'sqlite_file')
 
-engine = create_engine('sqlite:///'+dbname, echo=True)
+engine = create_engine('sqlite:///'+dbname, echo=True, connect_args={'check_same_thread': False})
 session_factory  = sessionmaker(bind=engine)
 Session = scoped_session(session_factory)
 
