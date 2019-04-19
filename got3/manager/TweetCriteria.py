@@ -137,6 +137,11 @@ class TweetCriteria:
         self.saveCommentsofComments = saveCommentsofComments
         return self
 
+    def setProjId(self, project_id):
+
+        self.projectID = project_id
+        return self
+
     def getSettingsStr(self):
 
         attrs = vars(self)

@@ -5,10 +5,10 @@ import configparser, random
 import dal
 import threading
 import json
-from fake_useragent import UserAgent
+
 
 from datetime import datetime, timedelta
-from itertools import cycle
+
 import tools
 
 import got3 as got
@@ -89,7 +89,7 @@ def main():
     consumersEnabled = config.getboolean("consumers", 'enabled')
     if consumersEnabled:
         logger.info("Starting Workers")
-        opList = ['tweetApi', 'userApi', 'tweet' ]
+        opList = ['tweetApi', 'userApi', 'tweet','tweet','tweet', 'tweet' ]
         TW_thread={}
         for op in opList:
             TW_thread[op] = threading.Thread(target=TWconsumer, args=(op,))
@@ -118,8 +118,8 @@ def main():
 
     # project tweets
     searchTerms = 'displaced OR immigrant OR migrant OR migration OR refugee OR asylum seeker OR trafficking OR border'
-    dateFrom = "2015-08-25"
-    dateToo = "2015-09-09"
+    dateFrom = "2015-08-02"
+    dateToo = "2015-08-04"
 
     # mixed tweets 25 root tweets
     # searchTerms = 'black hole heart'
@@ -145,6 +145,19 @@ def main():
     logger.info('searchTerms[%s]',searchTerms)
     logger.info('dateFrom[%s] to:[%s] interval[%i] maxTweetPerInterval[%i]', dateFrom,dateToo, interval,maxTweetPerInterval)
 
+    Criteria={}
+    Criteria['querysearch'] = searchTerms
+    Criteria['username'] = None
+    Criteria['since'] = dateFrom
+    Criteria['until'] = dateToo
+    Criteria['maxTweets'] =  maxTweetPerInterval
+    Criteria['topTweets'] = False
+    Criteria['saveComments'] = saveComments
+    Criteria['maxComments'] = maxComments
+    Criteria['saveCommentsofComments'] = saveCommentsofComments
+
+    proj_id = dbacc.add_project(Criteria)
+
     for dtItfr in tools.daterange(dtFrom,dtToo, interval):
         dtItfrStr = dtItfr.strftime("%Y-%m-%d")
         dtItToo = dtItfr + timedelta(interval)
@@ -157,7 +170,8 @@ def main():
             setMaxTweets(maxTweetPerInterval).\
             setSaveComments(saveComments).\
             setMaxComments(maxComments).\
-            setSaveCommentsofComments(saveCommentsofComments)
+            setSaveCommentsofComments(saveCommentsofComments).\
+            setProjId(proj_id)
 
         tweets = TM.getTweets(tweetCriteria)
 
@@ -249,9 +263,13 @@ def TWconsumer(toggle):
     while not Done:
 
 
-        if toggle != 'wait':
-            ids = TWdbacc.get_jobs(toggle, 100)
-            TWlogger.info("Got [%i] of %s",len(ids), toggle)
+
+        if toggle=='tweet':
+            limit = 10
+        else:
+            limit = 100
+        ids = TWdbacc.get_jobs(toggle, limit)
+        TWlogger.info("Got [%i] of %s",len(ids), toggle)
 
         if len(ids) == 0 or toggle=='wait':
             time.sleep(5)
@@ -272,6 +290,7 @@ def TWconsumer(toggle):
                     print ("Worker unable to process tweet ",tweet.id_str )
                     TWlogger.error("tweetApi worker exception %s", str(e))
                     TWdbacc.session.rollback()
+                    TWdbacc.increament_job("tweetApi", tweet.id_str)
                 TWdbacc.session.commit()
             TWlogger.info("Done Adding Processed tweets to Database")
             TWlogger.info("tweetApi * Finished")

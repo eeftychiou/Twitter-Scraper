@@ -54,6 +54,8 @@ class Tweet(Base):
     isSensitive = Column(Boolean, default=False)
 
 
+    ts_source = Column(String)
+    projectID = Column(Integer)
 
     # def __init__(self, id ,created_at, text, source,in_reply_to_status_id):
     #     self.id = id
@@ -154,6 +156,21 @@ class Media(Base):
     media_url_https = Column(String)
     source_status_id_str = Column(String)
     type = Column(String)
+
+class Project(Base):
+    __tablename__ = 'project'
+
+    proj_id = Column(Integer, primary_key=True)
+    query_string = Column(String)
+    username = Column(String)  #can be multiple
+    since = Column(String)
+    until = Column(String)
+    max_tweets = Column(Integer)
+    top_tweets = Column(Boolean)
+    saveComments = Column(Boolean)
+    maxComments = Column(Integer)
+    saveCommentsofComments = Column(Boolean)
+
 
 
 

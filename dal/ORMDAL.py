@@ -1,7 +1,7 @@
 import configparser
 import logging, sys, json
 from datetime import datetime
-from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media
+from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media, Project
 from .base import Session, engine, Base
 import tools
 
@@ -149,6 +149,9 @@ class TweetDal:
 
         if hasattr(tweet,"possibly_sensitive"):
             tweet_obj.isSensitive = tweet.possibly_sensitive
+
+        tweet_obj.ts_source = twScrap.get('ts_source')
+        tweet_obj.projectID = twScrap.get('projectID')
 
 
 
@@ -424,7 +427,6 @@ class TweetDal:
 
         idlist = {}
         for obj in jobs:
-            obj.retries = obj.retries + 1
             obj.status = 1
             obj.begin_date = str(datetime.now())
             idlist[obj.payload]=obj.json
@@ -475,7 +477,30 @@ class TweetDal:
             DLlogger.info('User ID  %s added', user_obj.user_id)
             self.session.commit()
         except Exception as e:
-            DLlogger.error('add_user * Exception[%s] in User ID  %s ', user_obj.user_id,str(e))
-            print ('add_user * Exception[%s] in User ID  %s ' %user_obj.user_id,str(e))
+            DLlogger.error('add_user * Exception[%s] in User ID  %s ', user.id_str, str(e))
+            print ('add_user * Exception[%s] in User ID  %s ' %(user_obj.user_id,str(e)))
             self.session.rollback()
+
+
+    def add_project(self, Criteria):
+        """
+        add a new project to the project table and get identifier
+        :return:
+        """
+        DLlogger.info('add_project ')
+        #create object
+        prj_obj = Project(query_string= Criteria['querysearch'],
+                           username = Criteria['username'],
+                           since = Criteria['since'],
+                           until = Criteria['until'],
+                           max_tweets= Criteria['maxTweets'],
+                           top_tweets= Criteria['topTweets'],
+                           saveComments=Criteria['saveComments'],
+                           maxComments=Criteria['maxComments'],
+                           saveCommentsofComments=Criteria['saveCommentsofComments'])
+
+        ret = self.session.add(prj_obj)
+        self.session.commit()
+        return prj_obj.proj_id
+
 

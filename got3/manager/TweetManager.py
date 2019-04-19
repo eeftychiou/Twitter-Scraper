@@ -140,10 +140,10 @@ class TweetManager:
                         .strftime("%a %b %d %X +0000 %Y")
                     tweet.mentions = " ".join(re.compile('(@\\w*)').findall(tweet.text))
                     tweet.hashtags = " ".join(re.compile('(#\\w*)').findall(tweet.text))
-                    if tweetPQ.attr("data-conversation-id") == tweet.id:
-                        tweet.conversationId = None
-                    else:
-                        tweet.conversationId = tweetPQ.attr("data-conversation-id")
+
+                    tweet.conversationId = tweetPQ.attr("data-conversation-id")
+                    tweet.ts_source = 'getTweets'
+                    tweet.projectID = tweetCriteria.projectID
 
                     geoSpan = tweetPQ('span.Tweet-geo')
                     if len(geoSpan) > 0:
@@ -189,7 +189,8 @@ class TweetManager:
                         setSaveComments(tweetCriteria.saveComments). \
                         setMaxComments(tweetCriteria.maxComments). \
                         setUsername(tweet.username).setStatusID(tweet.id).\
-                        setSaveCommentsofComments(tweetCriteria.saveCommentsofComments)
+                        setSaveCommentsofComments(tweetCriteria.saveCommentsofComments).\
+                        setProjId(tweetCriteria.projectID)
 
                     tcomments = self.getComments(commentsCriteria)
 
@@ -385,10 +386,10 @@ class TweetManager:
                     .strftime("%a %b %d %X +0000 %Y")
                 tweet.mentions = " ".join(re.compile('(@\\w*)').findall(tweet.text))
                 tweet.hashtags = " ".join(re.compile('(#\\w*)').findall(tweet.text))
-                if tweetPQ.attr("data-conversation-id") == tweet.id:
-                    tweet.conversationId = None
-                else:
-                    tweet.conversationId = tweetPQ.attr("data-conversation-id")
+
+                tweet.conversationId = tweetPQ.attr("data-conversation-id")
+                tweet.ts_source = 'getComments'
+                tweet.projectID = tweetCriteria.projectID
 
                 geoSpan = tweetPQ('span.Tweet-geo')
                 if len(geoSpan) > 0:
@@ -432,7 +433,8 @@ class TweetManager:
                     setSaveComments(tweetCriteria.saveComments). \
                     setMaxComments(tweetCriteria.maxComments). \
                     setUsername(tweet.username).setStatusID(tweet.id).\
-                    setSaveCommentsofComments(tweetCriteria.saveCommentsofComments)
+                    setSaveCommentsofComments(tweetCriteria.saveCommentsofComments).\
+                    setProjId(tweetCriteria.projectID)
                 comments = self.getComments(commentsCriteria)
                 comments.extend(comments)
             if not jobExists:
@@ -661,10 +663,10 @@ class TweetManager:
                 .strftime("%a %b %d %X +0000 %Y")
             tweet.mentions = " ".join(re.compile('(@\\w*)').findall(tweet.text))
             tweet.hashtags = " ".join(re.compile('(#\\w*)').findall(tweet.text))
-            if tweetPQ.attr("data-conversation-id") == tweet.id:
-                tweet.conversationId = None
-            else:
-                tweet.conversationId = tweetPQ.attr("data-conversation-id")
+
+            tweet.conversationId = tweetPQ.attr("data-conversation-id")
+            tweet.ts_source = 'getStatus'
+            tweet.projectID = tweetCriteria.projectID
 
             geoSpan = tweetPQ('span.Tweet-geo')
             if len(geoSpan) > 0:

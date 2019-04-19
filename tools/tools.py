@@ -61,6 +61,9 @@ def getDict(t):
     data['id'] = t.id
     data['permalink'] = t.permalink
     data['conversationid'] = t.conversationId
+    data['ts_source'] = t.ts_source
+    data['projectID'] = t.projectID
+
     return data
 
 def get_proxies(user_agent):
