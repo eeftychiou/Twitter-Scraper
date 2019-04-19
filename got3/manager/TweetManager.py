@@ -98,7 +98,7 @@ class TweetManager:
             active = True
             while active:
                 jsonstr = self.getTimelineJsonResponse(tweetCriteria, refreshCursor, cookieJar)
-                if len(jsonstr['items_html'].strip()) == 0:
+                if jsonstr==None or len(jsonstr['items_html'].strip()) == 0 :
                     break
 
                 refreshCursor = jsonstr['min_position']
@@ -144,6 +144,7 @@ class TweetManager:
                     tweet.conversationId = tweetPQ.attr("data-conversation-id")
                     tweet.ts_source = 'getTweets'
                     tweet.projectID = tweetCriteria.projectID
+                    tweet.sourceTweetStatusID = None
 
                     geoSpan = tweetPQ('span.Tweet-geo')
                     if len(geoSpan) > 0:
@@ -268,6 +269,7 @@ class TweetManager:
 
             if self.useProxy:
                 curproxy = random.choices(self.proxies, weights = self.proxiesWeights)[0]
+                self.TMlogger.info("Using proxy:%s",curproxy)
                 opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx),urllib.request.ProxyHandler({'http': curproxy, 'https': curproxy}),
                                                      urllib.request.HTTPCookieProcessor(cookieJar))
             else:
@@ -291,12 +293,13 @@ class TweetManager:
                     self.proxiesWeights[self.proxies.index(curproxy)] -= 1
                 tries = tries + 1
                 if tries>=self.retries:
-                    self.TMlogger.info("Exceeded retries")
-                    self.TMlogger.info("Skipping [%s]" %url)
+                    self.TMlogger.error("Exceeded retries")
+                    self.TMlogger.error("Skipping [%s]" %url)
+                    return None
             except Exception as e:
                 self.TMlogger.info("getTimelineJsonResponse * An error occured during an HTTP request: %s" ,str(e))
                 self.TMlogger.info("Try to open in browser: https://twitter.com/search?q=%s&src=typd" % urllib.parse.quote(urlGetData))
-                #sys.exit(1)
+
             else:
                 done = True
 
@@ -306,14 +309,14 @@ class TweetManager:
         try:
             s_json = jsonResponse.decode()
         except:
-            self.TMlogger.error("Invalid response from Twitter")
-            sys.exit()
+            self.TMlogger.error("Invalid response from Twitter: ", url)
+            return None
 
         try:
             dataJson = json.loads(s_json)
         except:
-            self.TMlogger.debug("Error parsing JSON: %s" % s_json)
-            sys.exit()
+            self.TMlogger.debug("Error parsing JSON: %s \n %s" , s_json, url)
+            return None
 
         self.TMlogger.debug("s_json [%s]",s_json)
 
@@ -390,6 +393,7 @@ class TweetManager:
                 tweet.conversationId = tweetPQ.attr("data-conversation-id")
                 tweet.ts_source = 'getComments'
                 tweet.projectID = tweetCriteria.projectID
+                tweet.sourceTweetStatusID = None
 
                 geoSpan = tweetPQ('span.Tweet-geo')
                 if len(geoSpan) > 0:
@@ -491,6 +495,7 @@ class TweetManager:
 
             if self.useProxy:
                 curproxy = random.choices(self.proxies, weights = self.proxiesWeights)[0]
+                self.TMlogger.info("Using proxy:%s", curproxy)
                 opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx),urllib.request.ProxyHandler({'http': curproxy, 'https': curproxy}),
                                                      urllib.request.HTTPCookieProcessor(cookieJar))
             else:
@@ -516,12 +521,13 @@ class TweetManager:
                     self.proxiesWeights[self.proxies.index(curproxy)] -= 1
                 tries = tries + 1
                 if tries >= self.retries:
-                    self.TMlogger.info("Exceeded retries")
-                    self.TMlogger.info("Skipping [%s]" %url)
+                    self.TMlogger.error("Exceeded retries")
+                    self.TMlogger.error("Skipping [%s]" %url)
+                    return None
             except Exception as e:
                 self.TMlogger.error("getStatusJsonResponse * Unhandled Exception * %s", str(e))
                 self.TMlogger.error("Try to open in browser: %s", url)
-                return None
+
             else:
                 done = True
 
@@ -532,12 +538,13 @@ class TweetManager:
         try:
             s_json = jsonResponse.decode()
         except:
-            self.TMlogger.error("Invalid response from Twitter")
+            self.TMlogger.error("Invalid response from Twitter check URL:", url)
             return None
 
         try:
             dataJson = json.loads(s_json)
         except:
+            self.TMlogger.error("Error parsing JSON check URL: %s", url)
             self.TMlogger.error("Error parsing JSON: %s" % s_json)
             return None
 
@@ -548,7 +555,7 @@ class TweetManager:
         return dataJson
 
 
-    def getStatusPage(self, tweetCriteria):
+    def getStatusPage(self, tweetCriteria, tWSrap):
         """Invoke an HTTP query to Twitter.
         Should not be used as an API function. A static method.
         """
@@ -586,6 +593,7 @@ class TweetManager:
 
             if self.useProxy:
                 curproxy = random.choices(self.proxies, weights = self.proxiesWeights)[0]
+                self.TMlogger.info("Using proxy:%s", curproxy)
                 opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx),urllib.request.ProxyHandler({'http': curproxy, 'https': curproxy}),
                                                      urllib.request.HTTPCookieProcessor(cookieJar))
             else:
@@ -609,13 +617,14 @@ class TweetManager:
                     self.proxiesWeights[self.proxies.index(curproxy)] -= 1
                 tries = tries + 1
                 if tries >= self.retries:
-                    self.TMlogger.info("Exceeded retries")
-                    self.TMlogger.info("Skipping [%s]" %url)
+                    self.TMlogger.error("Exceeded retries")
+                    self.TMlogger.error("Skipping [%s]" %url)
+                    return None
             except Exception as e:
                 self.TMlogger.info("getStatusPage * Unhandled Exception * %s", str(e))
                 self.TMlogger.info(
                     "Try to open in browser: %s" % url)
-                return None
+
 
             else:
                 done = True
@@ -666,7 +675,8 @@ class TweetManager:
 
             tweet.conversationId = tweetPQ.attr("data-conversation-id")
             tweet.ts_source = 'getStatus'
-            tweet.projectID = tweetCriteria.projectID
+            tweet.projectID = tWSrap['projectID']
+            tweet.sourceTweetStatusID = tWSrap['sourceTweetStatusID']
 
             geoSpan = tweetPQ('span.Tweet-geo')
             if len(geoSpan) > 0:

@@ -152,6 +152,7 @@ class TweetDal:
 
         tweet_obj.ts_source = twScrap.get('ts_source')
         tweet_obj.projectID = twScrap.get('projectID')
+        tweet_obj.sourceTweetStatusID = twScrap.get('sourceTweetStatusID')
 
 
 
@@ -167,6 +168,8 @@ class TweetDal:
             if not self.tweetExists(tweet_obj.in_reply_to_status_id) and tweet_obj.in_reply_to_status_id !=None:
                 pdict={}
                 pdict['username'] = tweet.in_reply_to_screen_name
+                pdict['sourceTweetStatusID'] = tweet_obj.id
+                pdict['projectID'] = tweet_obj.projectID
                 self.add_job('tweet',(tweet_obj.in_reply_to_status_id,json.dumps(pdict)))
                 self.session.commit()
 
@@ -187,6 +190,8 @@ class TweetDal:
             if not self.tweetExists(tweet_obj.quoted_status_id) and tweet_obj.quoted_status_id != None:
                 pdict={}
                 pdict['username'] = tweet.quoted_status.author.screen_name
+                pdict['sourceTweetStatusID'] = tweet_obj.id
+                pdict['projectID'] = tweet_obj.projectID
                 self.add_job('tweet', (tweet_obj.quoted_status_id,json.dumps(pdict)))
                 self.session.commit()
                 if not self.userExists(tweet.quoted_status.author.id_str):
@@ -196,7 +201,11 @@ class TweetDal:
         if  hasattr(tweet, "retweeted_status"):
             tweet_obj.retweeted_status = tweet.quoted_status.retweeted_status.id
             if not self.tweetExists(tweet_obj.retweeted_status) and tweet_obj.retweeted_status !=None:
-                self.add_job('tweet',tweet_obj.retweeted_status)
+                pdict={}
+                pdict['username'] = tweet.quoted_status.author.screen_name
+                pdict['sourceTweetStatusID'] = tweet_obj.id
+                pdict['projectID'] = tweet_obj.projectID
+                self.add_job('tweet',(tweet_obj.retweeted_status,json.dumps(pdict)))
                 self.session.commit()
 
         #####################

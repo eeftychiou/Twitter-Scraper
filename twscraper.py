@@ -89,7 +89,8 @@ def main():
     consumersEnabled = config.getboolean("consumers", 'enabled')
     if consumersEnabled:
         logger.info("Starting Workers")
-        opList = ['tweetApi', 'userApi', 'tweet','tweet','tweet', 'tweet' ]
+        opList = config.get('consumers','consumers_cfg').strip().split(',')
+
         TW_thread={}
         for op in opList:
             TW_thread[op] = threading.Thread(target=TWconsumer, args=(op,))
@@ -299,14 +300,16 @@ def TWconsumer(toggle):
             TWlogger.info("TS * Started")
             TWlogger.info("TS Processing %i %ss",len(ids),  toggle)
             for scr_tweet in ids:
+                tWscrap = json.loads(ids[scr_tweet])
                 TWlogger.info("TS Processing %s", scr_tweet)
                 tweetCriteria = got.manager.TweetCriteria().setMaxTweets(-1). \
                     setSaveComments(True). \
                     setMaxComments(-1). \
                     setUsername(json.loads(ids[scr_tweet])['username']).\
-                    setStatusID(scr_tweet).setSaveCommentsofComments(False)
+                    setStatusID(scr_tweet).setSaveCommentsofComments(False).\
+                    setProjId(tWscrap['projectID'])
 
-                stTweet = TMW.getStatusPage(tweetCriteria)
+                stTweet = TMW.getStatusPage(tweetCriteria, tWscrap )
 
                 if stTweet==None:
                     TWlogger.info("TS * Could not scrape tweet [%s]", scr_tweet)

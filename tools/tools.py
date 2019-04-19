@@ -63,6 +63,7 @@ def getDict(t):
     data['conversationid'] = t.conversationId
     data['ts_source'] = t.ts_source
     data['projectID'] = t.projectID
+    data['sourceTweetStatusID'] = t.sourceTweetStatusID
 
     return data
 

@@ -56,6 +56,7 @@ class Tweet(Base):
 
     ts_source = Column(String)
     projectID = Column(Integer)
+    sourceTweetStatusID = Column(String)
 
     # def __init__(self, id ,created_at, text, source,in_reply_to_status_id):
     #     self.id = id
