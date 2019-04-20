@@ -98,7 +98,9 @@ class TweetManager:
             active = True
             while active:
                 jsonstr = self.getTimelineJsonResponse(tweetCriteria, refreshCursor, cookieJar)
-                if jsonstr==None or len(jsonstr['items_html'].strip()) == 0 :
+                if jsonstr==None:
+                    break
+                if len(jsonstr['items_html'].strip()) == 0 :
                     break
 
                 refreshCursor = jsonstr['min_position']
@@ -107,8 +109,11 @@ class TweetManager:
                 scrapedTweets.remove('div.withheld-tweet')
                 tweets = scrapedTweets('div.js-stream-tweet')
 
+
                 if len(tweets) == 0:
                     break
+
+
 
                 for tweetHTML in tweets:
                     tweetPQ = PyQuery(tweetHTML)
@@ -205,7 +210,7 @@ class TweetManager:
         """Invoke an HTTP query to Twitter.
         Should not be used as an API function. A static method.
         """
-
+        self.TMlogger.info("Entered * criteria[%s]", tweetCriteria.getSettingsStr())
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -251,9 +256,9 @@ class TweetManager:
         url = url % (urllib.parse.quote(urlGetData.strip()), urlLang, urllib.parse.quote(refreshCursor))
 
 
-        done = False
+
         tries=0
-        while not done and tries < self.retries:
+        while tries < self.retries:
 
             useragent = random.choice(self.user_agents)
 
@@ -269,24 +274,25 @@ class TweetManager:
 
             if self.useProxy:
                 curproxy = random.choices(self.proxies, weights = self.proxiesWeights)[0]
-                self.TMlogger.info("Using proxy:%s",curproxy)
+                self.TMlogger.info("Using proxy:[%s]",curproxy)
                 opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx),urllib.request.ProxyHandler({'http': curproxy, 'https': curproxy}),
                                                      urllib.request.HTTPCookieProcessor(cookieJar))
             else:
                 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookieJar))
             opener.addheaders = headers
 
-            self.TMlogger.debug("getTimelineJsonResponse * [%s]",url)
-            self.TMlogger.debug("getTimelineJsonResponse * [%s]".join(h[0] + ': ' + h[1] for h in headers))
+            self.TMlogger.info("Opening [%s]",url)
+            self.TMlogger.debug("Headers [%s]".join(h[0] + ': ' + h[1] for h in headers))
 
 
             try:
+                time.sleep(1)
                 response = opener.open(url, timeout=1)
                 jsonResponse = response.read()
             except HTTPError as error:
-                self.TMlogger.info("getTimelineJsonResponse * An error occured during an HTTP request: %s", str(error))
-                self.TMlogger.info("Try to open in browser: https://twitter.com/search?q=%s&src=typd" % urllib.parse.quote(urlGetData))
-                done = True
+                self.TMlogger.info("An error occured during an HTTP request: %s", str(error))
+                tries += 5
+                continue
             except URLError or TimeoutError as error:
                 self.TMlogger.info('UrlOpen Error [%s] ' % str(error) )
                 if self.useProxy:
@@ -296,30 +302,48 @@ class TweetManager:
                     self.TMlogger.error("Exceeded retries")
                     self.TMlogger.error("Skipping [%s]" %url)
                     return None
+                continue
             except Exception as e:
-                self.TMlogger.info("getTimelineJsonResponse * An error occured during an HTTP request: %s" ,str(e))
+                self.TMlogger.info("An error occured during an HTTP request: %s" ,str(e))
                 self.TMlogger.info("Try to open in browser: https://twitter.com/search?q=%s&src=typd" % urllib.parse.quote(urlGetData))
-
-            else:
-                done = True
-
-            time.sleep(1)
+                continue
 
 
-        try:
-            s_json = jsonResponse.decode()
-        except:
-            self.TMlogger.error("Invalid response from Twitter: ", url)
-            return None
 
-        try:
-            dataJson = json.loads(s_json)
-        except:
-            self.TMlogger.debug("Error parsing JSON: %s \n %s" , s_json, url)
-            return None
 
-        self.TMlogger.debug("s_json [%s]",s_json)
 
+            try:
+                s_json = jsonResponse.decode()
+            except:
+                self.TMlogger.error("Invalid response from Twitter: ", url)
+                if self.useProxy:
+                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
+                if tries>=self.retries:
+                    self.TMlogger.error("decode Exceeded retries")
+                    self.TMlogger.error("Skipping [%s]" %url)
+                    return None
+                tries = tries + 5
+                continue
+
+            try:
+                dataJson = json.loads(s_json)
+                if len(dataJson['items_html'].strip()) == 0:
+                    tries = tries + 5
+                    continue
+                break
+            except Exception as e:
+                self.TMlogger.debug("Error parsing JSON: %s \n %s \n Exception[%s]" , s_json, url, str(e))
+                if self.useProxy:
+                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
+                tries = tries + 5
+                if tries >= self.retries:
+                    self.TMlogger.error("loads Exceeded retries")
+                    self.TMlogger.error("Skipping [%s]" % url)
+                    return None
+
+                continue
+
+        self.TMlogger.info("Finished ")
         return dataJson
 
 
@@ -429,7 +453,7 @@ class TweetManager:
 
         comments = []
         for tweet in results:
-            #tweetExists = (tweet.id in [ids.id for ids in comments])
+
             jobExists = self.TMdal.jobExists('tweetApi', tweet.id)
             if tweet.replies > 0 and tweetCriteria.saveComments \
                     and tweetCriteria.saveCommentsofComments and not jobExists:
@@ -453,7 +477,7 @@ class TweetManager:
             receiveBuffer(resultsAux)
             resultsAux = []
 
-        self.TMlogger.info("getComments * Finished * Added[%i] tweets, Total [%i] ",len(results), len(self.tweets))
+        self.TMlogger.info("*Finished * Added[%i] tweets, Total [%i] ",len(results), len(self.tweets))
 
         return results
 
@@ -461,6 +485,7 @@ class TweetManager:
         """Invoke an HTTP query to Twitter.
         Should not be used as an API function. A static method.
         """
+        self.TMlogger.info('*Entered * criteria [%s]', tweetCriteria.getSettingsStr())
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -477,9 +502,9 @@ class TweetManager:
 
         url = url % (user_name, statusID, refreshCursor)
 
-        done = False
+
         tries = 0
-        while not done and tries < self.retries:
+        while tries < self.retries:
 
             useragent = random.choice(self.user_agents)
 
@@ -503,18 +528,18 @@ class TweetManager:
             opener.addheaders = headers
 
 
-            self.TMlogger.debug('getStatusJsonResponse * [%s]',url)
-            self.TMlogger.debug('getStatusJsonResponse headers[%s]'.join(h[0] + ': ' + h[1] for h in headers))
+            self.TMlogger.info('*Opening URL [%s]',url)
+            self.TMlogger.debug('headers[%s]'.join(h[0] + ': ' + h[1] for h in headers))
 
 
             try:
+                time.sleep(1)
                 response = opener.open(url, timeout=1)
                 jsonResponse = response.read()
             except HTTPError as error:
-                self.TMlogger.debug("getTimelineJsonResponse * An error occured during an HTTP request:%s", str(error))
-                self.TMlogger.debug(
-                    "Try to open in browser: https://twitter.com/search?q=%s&src=typd" % urllib.parse.quote(urlGetData))
-                done = True
+                self.TMlogger.error("* An error occurred during an HTTP request:%s", str(error))
+                tries = tries + 5
+                continue
             except URLError or TimeoutError as error:
                 self.TMlogger.info('UrlOpen Error [%s] ' % str(error))
                 if self.useProxy:
@@ -527,31 +552,43 @@ class TweetManager:
             except Exception as e:
                 self.TMlogger.error("getStatusJsonResponse * Unhandled Exception * %s", str(e))
                 self.TMlogger.error("Try to open in browser: %s", url)
-
-            else:
-                done = True
-
-            time.sleep(1)
+                continue
 
 
+            try:
+                s_json = jsonResponse.decode()
+            except:
+                self.TMlogger.error("Invalid response from Twitter check URL: %s", url)
+                if self.useProxy:
+                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
+                tries = tries + 5
+                if tries >= self.retries:
+                    self.TMlogger.error("Exceeded retries")
+                    self.TMlogger.error("Skipping [%s]" %url)
+                    return None
 
-        try:
-            s_json = jsonResponse.decode()
-        except:
-            self.TMlogger.error("Invalid response from Twitter check URL:", url)
-            return None
+                continue
 
-        try:
-            dataJson = json.loads(s_json)
-        except:
-            self.TMlogger.error("Error parsing JSON check URL: %s", url)
-            self.TMlogger.error("Error parsing JSON: %s" % s_json)
-            return None
+            try:
+                dataJson = json.loads(s_json)
+                if len(dataJson['items_html'].strip()) == 0:
+                    tries = tries + 5
+                    continue
+                break
+            except:
+                self.TMlogger.error("Error parsing JSON check URL: %s", url)
+                self.TMlogger.error("Error parsing JSON: %s" % s_json)
+                if self.useProxy:
+                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
+                tries = tries + 5
+                if tries >= self.retries:
+                    self.TMlogger.error("Exceeded retries")
+                    self.TMlogger.error("Skipping [%s]" %url)
+                    return None
 
+                continue
 
-        self.TMlogger.debug('s_json[%s]',s_json)
-
-
+        self.TMlogger.info("Finished ")
         return dataJson
 
 
@@ -559,6 +596,7 @@ class TweetManager:
         """Invoke an HTTP query to Twitter.
         Should not be used as an API function. A static method.
         """
+        self.TMlogger.info("* Entered * criteria [%s]" , tweetCriteria.getSettingsStr())
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -576,9 +614,9 @@ class TweetManager:
         url = url % (user_name, statusID)
 
 
-        done=False
-        tries=0
-        while not done and tries < self.retries:
+
+        tries = 0
+        while tries < self.retries:
             useragent = random.choice(self.user_agents)
 
             headers = [
@@ -600,17 +638,22 @@ class TweetManager:
                 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookieJar))
             opener.addheaders = headers
 
-            self.TMlogger.debug('getStatusPage * [%s]',url)
-            self.TMlogger.debug('getStatusPage headers[%s]'.join(h[0] + ': ' + h[1] for h in headers))
+            self.TMlogger.info('URL * [%s]',url)
+            self.TMlogger.debug('headers[%s]'.join(h[0] + ': ' + h[1] for h in headers))
 
             try:
+                time.sleep(1)
                 response = opener.open(url, timeout=1)
                 Response = response.read()
+                break
             except HTTPError as error:
-                self.TMlogger.info("getStatusPage * An error occured during an HTTP request: %s", str(error))
-                self.TMlogger.info(
-                    "Try to open in browser: %s" % url)
-                return None
+                self.TMlogger.info("* An error occurred during an HTTP request: %s", str(error))
+                tries = tries + 5
+                if tries >= self.retries:
+                    self.TMlogger.error("Exceeded retries")
+                    self.TMlogger.error("Skipping [%s]" %url)
+                    return None
+                continue
             except URLError or TimeoutError as error:
                 self.TMlogger.info('UrlOpen Error [%s] '% str(error))
                 if self.useProxy:
@@ -620,17 +663,12 @@ class TweetManager:
                     self.TMlogger.error("Exceeded retries")
                     self.TMlogger.error("Skipping [%s]" %url)
                     return None
+                continue
             except Exception as e:
-                self.TMlogger.info("getStatusPage * Unhandled Exception * %s", str(e))
-                self.TMlogger.info(
-                    "Try to open in browser: %s" % url)
+                self.TMlogger.info("* Unhandled Exception * %s", str(e))
+                self.TMlogger.info("Try to open in browser: %s" % url)
+                continue
 
-
-            else:
-                done = True
-
-
-            time.sleep(1)
 
         twdata = PyQuery(Response)
         tweets = twdata('div.tweet')
@@ -642,11 +680,11 @@ class TweetManager:
             # todo refactor into function given html tweet return tweet object
             usernames = tweetPQ("span.username.u-dir b").text().split()
             if not len(usernames):  # fix for issue #13
-                self.TMlogger.Error("getStatusPage * Error while getting username [ %s ] ", url)
+                self.TMlogger.Error("* Error while getting username [ %s ] ", url)
                 return None
 
             if 'Learn' in tweetPQ("a.Tombstone-inlineAction").text().split():   #account suspended
-                self.TMlogger.info("getStatusPage * User Suspended [ %s ] ", url)
+                self.TMlogger.info("* User Suspended [ %s ] ", url)
                 return None
 
 
@@ -698,6 +736,7 @@ class TweetManager:
 
         if 'tweet' in locals():
             self.tweets[tweet.id] = tweet
+            self.TMlogger.info("Finished ")
             return tweet
         else:
             return None

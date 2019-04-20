@@ -67,6 +67,35 @@ def getDict(t):
 
     return data
 
+def get_proxy_cfg(config, logger):
+    useProxy = config.getboolean('webscraper', 'useProxy')
+    getProxyList = config.getboolean("webscraper", 'getProxyList')
+    proxyRetries = config.getint('webscraper','retries')
+    if getProxyList and useProxy:
+        pManager = ProxyManager(
+            'https://twitter.com/i/MeettheBlues/conversation/1108057971194556416?include_available_features=1&include_entities=1&max_position=&reset_error_state=false',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36')
+        # Refresh the status of the proxies we pulled on initialization
+        pManager.refresh_proxy_status()
+        proxies = pManager.get_proxies_key_value('alive', True)
+    elif useProxy and not getProxyList:
+        proxyList = config.items('proxyList')
+        if len(proxyList) == 0:
+            logger.info('Incorrect Proxy configuration, not using proxy')
+            useProxy = False
+        else:
+            proxies = []
+            [proxies.append(p[1]) for p in proxyList]
+    elif not useProxy:
+        logger.info('Not using proxy')
+        proxies=None
+    else:
+        logger.info('Incorrect Proxy configuration,not using proxy')
+        useProxy = False
+        proxies =None
+    return proxies, useProxy,proxyRetries
+
+
 def get_proxies(user_agent):
 
     response = requests.get('https://www.free-proxy-list.net/', headers={'User-Agent': user_agent}, timeout=(9, 27))
