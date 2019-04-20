@@ -100,8 +100,8 @@ def main():
 
     # project tweets
     searchTerms = 'displaced OR immigrant OR migrant OR migration OR refugee OR asylum seeker OR trafficking OR border'
-    dateFrom = "2015-08-02"
-    dateToo = "2015-08-03"
+    dateFrom = "2015-08-01"
+    dateToo = "2015-09-31"
 
     # mixed tweets 25 root tweets
     # searchTerms = 'black hole heart'
