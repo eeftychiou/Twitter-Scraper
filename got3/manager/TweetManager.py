@@ -167,7 +167,7 @@ class TweetManager:
                     tweet.urls = ",".join(urls)
 
                     if not self.TMdal.jobExists('tweetApi',tweet.id) :
-                        self.TMdal.add_job('tweetApi',(tweet.id,json.dumps(tools.getDict(tweet))))
+                        self.TMdal.add_job('tweetApi',random.randint(0,2),(tweet.id,json.dumps(tools.getDict(tweet))))
 
                     self.tweets[tweet.id] = tweet
                     results.append(tweet)
@@ -286,7 +286,7 @@ class TweetManager:
 
 
             try:
-                time.sleep(1)
+                time.sleep(0.3)
                 response = opener.open(url, timeout=1)
                 jsonResponse = response.read()
             except HTTPError as error:
@@ -466,7 +466,7 @@ class TweetManager:
                 comments = self.getComments(commentsCriteria)
                 comments.extend(comments)
             if not jobExists:
-                self.TMdal.add_job('tweetApi', (tweet.id, json.dumps(tools.getDict(tweet))))
+                self.TMdal.add_job('tweetApi',random.randint(0,2), (tweet.id, json.dumps(tools.getDict(tweet))))
 
         results.extend(comments)
         resultsAux.extend(comments)
@@ -504,6 +504,8 @@ class TweetManager:
 
 
         tries = 0
+        dataJson = None
+
         while tries < self.retries:
 
             useragent = random.choice(self.user_agents)
@@ -533,7 +535,7 @@ class TweetManager:
 
 
             try:
-                time.sleep(1)
+                time.sleep(0.3)
                 response = opener.open(url, timeout=1)
                 jsonResponse = response.read()
             except HTTPError as error:
@@ -642,7 +644,7 @@ class TweetManager:
             self.TMlogger.debug('headers[%s]'.join(h[0] + ': ' + h[1] for h in headers))
 
             try:
-                time.sleep(1)
+                time.sleep(0.3)
                 response = opener.open(url, timeout=1)
                 Response = response.read()
                 break

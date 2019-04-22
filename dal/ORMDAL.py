@@ -1,5 +1,5 @@
 import configparser
-import logging, sys, json
+import logging, sys, json, random
 from datetime import datetime
 from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media, Project
 from .base import Session, engine, Base
@@ -22,7 +22,7 @@ class TweetDal:
         config.read('config.ini')
 
         Base.metadata.create_all(engine)
-        self.session = Session()
+        self.session = Session
 
     def add_tweet(self, tweet, jsonstr):
         """
@@ -156,7 +156,7 @@ class TweetDal:
 
 
 
-        self.session.add(tweet_obj)
+        self.session.merge(tweet_obj)
         self.complete_job("tweetApi", tweet.id_str)
         self.session.commit()
 
@@ -170,13 +170,13 @@ class TweetDal:
                 pdict['username'] = tweet.in_reply_to_screen_name
                 pdict['sourceTweetStatusID'] = tweet_obj.id
                 pdict['projectID'] = tweet_obj.projectID
-                self.add_job('tweet',(tweet_obj.in_reply_to_status_id,json.dumps(pdict)))
+                self.add_job('tweet',random.randint(0,9),(tweet_obj.in_reply_to_status_id,json.dumps(pdict)))
                 self.session.commit()
 
         if hasattr(tweet, "in_reply_to_user_id"):
             tweet_obj.in_reply_to_user_id = tweet.in_reply_to_user_id
             if not self.userExists(tweet_obj.in_reply_to_user_id) and tweet_obj.in_reply_to_user_id != None:
-                self.add_job('userApi', (tweet_obj.in_reply_to_user_id,None))
+                self.add_job('userApi',0, (tweet_obj.in_reply_to_user_id,None))
                 self.session.commit()
 
         if hasattr(tweet, "author"):
@@ -192,7 +192,7 @@ class TweetDal:
                 pdict['username'] = tweet.quoted_status.author.screen_name
                 pdict['sourceTweetStatusID'] = tweet_obj.id
                 pdict['projectID'] = tweet_obj.projectID
-                self.add_job('tweet', (tweet_obj.quoted_status_id,json.dumps(pdict)))
+                self.add_job('tweet',random.randint(0,9), (tweet_obj.quoted_status_id,json.dumps(pdict)))
                 self.session.commit()
                 if not self.userExists(tweet.quoted_status.author.id_str):
                     self.add_user(tweet.quoted_status.author)
@@ -205,7 +205,7 @@ class TweetDal:
                 pdict['username'] = tweet.quoted_status.author.screen_name
                 pdict['sourceTweetStatusID'] = tweet_obj.id
                 pdict['projectID'] = tweet_obj.projectID
-                self.add_job('tweet',(tweet_obj.retweeted_status,json.dumps(pdict)))
+                self.add_job('tweet',random.randint(0,9),(tweet_obj.retweeted_status,json.dumps(pdict)))
                 self.session.commit()
 
         #####################
@@ -217,7 +217,7 @@ class TweetDal:
             for mention in tweet.entities['user_mentions']:
                 #add to jobs for processing if not present
                 if not self.userExists(mention['id']):
-                    self.add_job('userApi', (mention['id'],None))
+                    self.add_job('userApi',0, (mention['id'],None))
                 self.add_mention(mention,tweet.id_str)
 
         if tweet_obj.hasURL:
@@ -235,15 +235,15 @@ class TweetDal:
         DLlogger.info('Tweet ID  %i added', tweet.id)
 
 
-    def add_job(self, jobtype, payload):
+    def add_job(self, jobtype, worker, payload):
         """
         Adds a single job to the task queue
         :param job:
         :return:
         """
 
-        DLlogger.info('add_job - %s - %s', jobtype, payload[0])
-        job_obj = Job(job_type=jobtype, payload=payload[0], json=payload[1])
+        DLlogger.info('add_job - %s - %s - %i', jobtype, payload[0],worker)
+        job_obj = Job(job_type=jobtype,worker=worker, payload=payload[0], json=payload[1])
         self.session.add(job_obj)
         self.session.commit()
 
@@ -422,17 +422,18 @@ class TweetDal:
             return True
 
 
-    def get_jobs(self, jobtype, n):
+    def get_jobs(self, jobtype, n , worker):
         """
         gets a number of specified jobs pending jobs from the queue and update them accordingly
         :param jobtype:
         :return: a list of ids, this can be tweet_ids, user_ids but not mixed within the same list
         """
-        DLlogger.info('get_jobs[%i] - %s ', n, jobtype)
+        DLlogger.info('get_jobs[%i] - %s - %i', n, jobtype, worker)
 
-        jobs = self.session.query(Job).filter(Job.status == 0) \
-            .filter(Job.job_type == jobtype).filter(Job.retries <= 3). \
-            filter(Job.end_date == None).limit(n)
+
+        jobs = self.session.query(Job).filter(Job.status == 0).\
+            filter(Job.job_type == jobtype).filter(Job.retries <= 3).\
+            filter(Job.end_date == None).filter(Job.worker==worker).limit(n)
 
         idlist = {}
         for obj in jobs:
@@ -441,6 +442,8 @@ class TweetDal:
             idlist[obj.payload]=obj.json
         self.session.bulk_save_objects(jobs)
         self.session.commit()
+        self.session.flush()
+        self.session.close()
 
         DLlogger.info('Found [%i] jobs ', len(idlist))
 

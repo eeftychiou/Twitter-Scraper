@@ -5,6 +5,7 @@ import configparser, random
 import dal
 import threading
 import json
+import time
 
 
 from datetime import datetime, timedelta
@@ -73,7 +74,7 @@ def main():
 
         TW_thread=[]
         for op in opList:
-            thrID = threading.Thread(target=TWconsumer, args=(op,))
+            thrID =     threading.Thread(target=TWconsumer, args=(op,))
             TW_thread.append(thrID)
             thrID.start()
 
@@ -100,8 +101,8 @@ def main():
 
     # project tweets
     searchTerms = 'displaced OR immigrant OR migrant OR migration OR refugee OR asylum seeker OR trafficking OR border'
-    dateFrom = "2015-08-01"
-    dateToo = "2015-09-31"
+    dateFrom = "2015-01-15"
+    dateToo = "2015-12-31"
 
     # mixed tweets 25 root tweets
     # searchTerms = 'black hole heart'
@@ -176,7 +177,6 @@ def main():
 def TWconsumer(toggle):
     import logging.config
 
-    import time
 
     logging.config.fileConfig('logConfig.cfg')
     TWlogger = logging.getLogger('TW')
@@ -184,149 +184,189 @@ def TWconsumer(toggle):
     config = configparser.RawConfigParser()
     config.read('config.ini')
 
-    consumer_key = config.get('twitter credentials','consumer_key')
-    consumer_secret = config.get('twitter credentials','consumer_secret')
-
-    access_token = config.get('twitter credentials','access_token')
-
-    access_token_secret = config.get('twitter credentials','access_token_secret')
-
-    TWlogger.info('Authenticating')
-    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-    auth.set_access_token(access_token, access_token_secret)
-
-    api = tweepy.API(auth, wait_on_rate_limit=True)
-
-    user = api.get_user('eeftychiou')
-
-    TWlogger.info("Connected to Twitter Api: %s",user._api.last_response.status_code)
-
-    saveComments = config.getboolean('webscraper','saveComments')
-    saveCommentsofComments = config.getboolean('webscraper','saveCommentsofComments')
-    maxComments  = config.getint('webscraper','maxComments')
-    webscraper = config.getboolean('consumers','webscraper')
-
     TWlogger.info("Connecting to Database")
     TWdbacc = dal.TweetDal()
 
     TMW = got.manager.TweetManager(DBSession=TWdbacc)
 
-    #get proxy settings
-    proxies, useProxy, proxyRetries = tools.get_proxy_cfg(config, TWlogger )
+    localData = threading.local()
+    localData.toggleParse = toggle.strip().split('-')
 
-    TMW.useProxy=useProxy
-    if useProxy:
-        TMW.proxies = proxies
-        TMW.retries = proxyRetries
-        TMW.proxiesWeights = [TMW.retries] * len(TMW.proxies)
+    if localData.toggleParse[0] in ['userApi','tweetApi']:
+        consumer_key = config.get('twitter credentials','consumer_key')
+        consumer_secret = config.get('twitter credentials','consumer_secret')
 
-    time.sleep(60)
+        access_token = config.get('twitter credentials','access_token')
+
+        access_token_secret = config.get('twitter credentials','access_token_secret')
+
+        TWlogger.info('Authenticating')
+        auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+        auth.set_access_token(access_token, access_token_secret)
+
+        localData.api = tweepy.API(auth, wait_on_rate_limit=True)
+
+        user = localData.api.get_user('eeftychiou')
+
+        TWlogger.info("Connected to Twitter Api: %s",user._api.last_response.status_code)
+
+    elif localData.toggleParse[0] =='tweet':
+
+        saveComments = config.getboolean('webscraper','saveComments')
+        saveCommentsofComments = config.getboolean('webscraper','saveCommentsofComments')
+        maxComments  = config.getint('webscraper','maxComments')
+        webscraper = config.getboolean('consumers','webscraper')
+        # get proxy settings
+        proxies, useProxy, proxyRetries = tools.get_proxy_cfg(config, TWlogger)
+
+        TMW.useProxy = useProxy
+        if useProxy:
+            TMW.proxies = proxies
+            TMW.retries = proxyRetries
+            TMW.proxiesWeights = [TMW.retries] * len(TMW.proxies)
+
+
+    time.sleep(10)
 
     Done = False
 
     while not Done:
 
+        if localData.toggleParse[0] == 'userApi':
+            processUser(TWdbacc, TWlogger, localData.api, toggle)
+
+        elif localData.toggleParse[0] == 'tweetApi':
+            processTweetApi(TWdbacc, TWlogger, localData.api, toggle)
+
+        elif localData.toggleParse[0] == 'tweet' and webscraper:
+
+            processTweet(TMW, TWdbacc, TWlogger, maxComments, saveComments, saveCommentsofComments,toggle,useProxy)
+        elif localData.toggleParse[0] ==' tweet' and webscraper == False:
+            TWlogger.info("TS * Tweet Scrapper Disabled")
+            return
 
 
-        if toggle=='tweet':
-            limit = 10
-        else:
-            limit = 100
-        ids = TWdbacc.get_jobs(toggle, limit)
-        TWlogger.info("Got [%i] of %s",len(ids), toggle)
 
-        if len(ids) == 0 or toggle=='wait':
-            time.sleep(20)
-            continue
 
-        if toggle=='tweetApi':   #get tweet data from API with json and add to database
-            TWlogger.info("tweetApi * Started")
-            TWlogger.info("Tweepy Processing %i %ss",len(ids),  toggle)
-            api_tweets = api.statuses_lookup(list(ids.keys()), include_entities=True, tweet_mode='extended')
-            TWlogger.info("Adding Processed tweets to Database")
 
-            for tweet in api_tweets:
+
+
+
+def processUser(TWdbacc, TWlogger, api, toggle):
+    limit = 5
+    type = toggle.split('-')
+    ids = TWdbacc.get_jobs(type[0], limit, 0)
+    if len(ids) == 0:
+        time.sleep(60)
+        return
+    TWlogger.info("Got [%i] of %s", len(ids), toggle)
+    TWlogger.info("user * Started")
+    TWlogger.info("Tweepy Processing %i %ss", len(ids), toggle)
+    for userid in ids:
+
+        try:
+            if not TWdbacc.userExists(userid):
+                user = api.get_user(user_id=userid)
                 try:
-                    if not TWdbacc.tweetExists(tweet.id_str):
-                        TWdbacc.add_tweet(tweet, ids[tweet.id_str])
+                    TWdbacc.add_user(user)
 
                 except Exception as e:
-                    print ("Worker unable to process tweet ",tweet.id_str )
-                    TWlogger.error("tweetApi worker exception %s", str(e))
+                    print("Exception userApi worker ", str(e))
+                    TWlogger.error("userApi worker exception %s", str(e))
                     TWdbacc.session.rollback()
-                    TWdbacc.increament_job("tweetApi", tweet.id_str)
+                    TWdbacc.increament_job('userApi', userid)
                 TWdbacc.session.commit()
-            TWlogger.info("Done Adding Processed tweets to Database")
-            TWlogger.info("tweetApi * Finished")
-
-        elif toggle == 'tweet':  #web scrap and add
-            if webscraper == False:
-                TWlogger.info("TS * Tweet Scrapper Disabled")
-                return
-            TWlogger.info("TS * Started")
-            TWlogger.info("TS Processing %i %ss",len(ids),  toggle)
-            for scr_tweet in ids:
-                tWscrap = json.loads(ids[scr_tweet])
-                TWlogger.info("TS Processing %s", scr_tweet)
-                tweetCriteria = got.manager.TweetCriteria().setMaxTweets(-1). \
-                    setSaveComments(saveComments). \
-                    setMaxComments(maxComments). \
-                    setUsername(json.loads(ids[scr_tweet])['username']).\
-                    setStatusID(scr_tweet).setSaveCommentsofComments(saveCommentsofComments).\
-                    setProjId(tWscrap['projectID'])
-
-                stTweet = TMW.getStatusPage(tweetCriteria, tWscrap )
-
-                if stTweet==None:
-                    TWlogger.info("TS * Could not scrape tweet [%s]", scr_tweet)
-
-                    TWdbacc.increament_job("tweet", scr_tweet)
-                    continue
-                TWlogger.info("TS Done Processing Status Page of  %s with %i replies", scr_tweet, stTweet.replies)
-                if stTweet.replies and saveComments:
-                    TWlogger.info("TS Processing %i replies for %s", stTweet.replies, scr_tweet)
-                    tweets = TMW.getComments(tweetCriteria)
-                else:
-                    tweets=[]
-
-                tweets.append(stTweet)
-
-                tweetIDs = [[x.id,json.dumps(tools.getDict(x))] for x in tweets if not TWdbacc.tweetExists(x.id)]
-
-                TWlogger.info("Adding Processed [%i] tweets to Jobs for tweepy processing",len(tweetIDs))
-                if len(tweetIDs):
-                    TWdbacc.add_jobs('tweetApi', tweetIDs)
-
-                TWdbacc.complete_job("tweet", scr_tweet)
-
-                TWlogger.info("Done Adding Processed tweets to Database")
-            TWlogger.info("tweet * Finished")
+        except tweepy.TweepError as e:
+            if e.api_code in [63, 50]:
+                TWdbacc.complete_job("userApi", userid)
+                TWlogger.info('Tweepy Exception *UserApi [%s] Error Code: , %s', userid, e.reason)
+                TWdbacc.session.commit()
+    TWlogger.info("user * Finished")
 
 
-        elif toggle=='userApi':
-            TWlogger.info("user * Started")
-            TWlogger.info("Tweepy Processing %i %ss", len(ids), toggle)
-            for userid in ids:
 
-                try:
-                    if not TWdbacc.userExists(userid):
-                        user = api.get_user(user_id =userid)
-                        try:
-                            TWdbacc.add_user(user)
+def processTweet(TMW, TWdbacc, TWlogger, maxComments, saveComments, saveCommentsofComments, toggle, useProxy):
 
-                        except Exception as e:
-                            print("userApi worker exception ",str(e))
-                            TWlogger.error("userApi worker exception %s",str(e))
-                            TWdbacc.session.rollback()
-                            TWdbacc.increament_job('userApi',userid)
-                        TWdbacc.session.commit()
-                except tweepy.TweepError as e:
-                    if e.api_code in [63,50]:
-                        TWdbacc.increament_job("userApi", userid)
-                        TWlogger.info('Tweepy Exception *UserApi [%s] Error Code: , %s',userid, e.reason)
-                        TWdbacc.session.commit()
-                    print (e)
-            TWlogger.info("user * Finished")
+
+    if useProxy:
+        now = datetime.now()
+        if (now.minute%5)==0:
+            TWlogger.info("Proxies in list are: {}".format(' '.join(map(str, TMW.proxies))))
+            TWlogger.info("Proxies Weights in list are: {}".format(' '.join(map(str, TMW.proxiesWeights))))
+            TWlogger.info("Proxies Weights len [%i] sum [%i]", len(TMW.proxiesWeights), sum(TMW.proxiesWeights))
+    limit = 5
+    type = toggle.split('-')
+    ids = TWdbacc.get_jobs(type[0], limit,type[1])
+    if len(ids) == 0:
+        time.sleep(60)
+        return
+    TWlogger.info("TS * Started")
+    TWlogger.info("TS Processing %i %ss", len(ids), toggle)
+    for scr_tweet in ids:
+        tWscrap = json.loads(ids[scr_tweet])
+        TWlogger.info("TS Processing %s", scr_tweet)
+        tweetCriteria = got.manager.TweetCriteria().setMaxTweets(-1). \
+            setSaveComments(saveComments). \
+            setMaxComments(maxComments). \
+            setUsername(json.loads(ids[scr_tweet])['username']). \
+            setStatusID(scr_tweet).setSaveCommentsofComments(saveCommentsofComments). \
+            setProjId(tWscrap['projectID'])
+
+        stTweet = TMW.getStatusPage(tweetCriteria, tWscrap)
+
+        if stTweet == None:
+            TWlogger.info("TS * Could not scrape tweet [%s]", scr_tweet)
+
+            TWdbacc.increament_job("tweet", scr_tweet)
+            return
+
+        TWlogger.info("TS Done Processing Status Page of  %s with %i replies", scr_tweet, stTweet.replies)
+        if stTweet.replies and saveComments:
+            TWlogger.info("TS Processing %i replies for %s", stTweet.replies, scr_tweet)
+            tweets = TMW.getComments(tweetCriteria)
+        else:
+            tweets = []
+
+        tweets.append(stTweet)
+
+        tweetIDs = [[x.id, json.dumps(tools.getDict(x))] for x in tweets if not TWdbacc.tweetExists(x.id)]
+
+        TWlogger.info("Adding Processed [%i] tweets to Jobs for tweepy processing", len(tweetIDs))
+        if len(tweetIDs):
+            TWdbacc.add_jobs('tweetApi', tweetIDs)
+
+        TWdbacc.complete_job("tweet", scr_tweet)
+
+        TWlogger.info("Done Adding Processed tweets to Database")
+    TWlogger.info("tweet * Finished")
+    return
+
+
+def processTweetApi(TWdbacc, TWlogger, api, toggle):
+    limit = 100
+    type = toggle.split('-')
+    ids = TWdbacc.get_jobs(type[0], limit, type[1])
+    if len(ids) == 0:
+        time.sleep(60)
+        return
+    TWlogger.info("tweetApi * Started")
+    TWlogger.info("Tweepy Processing %i %s", len(ids), toggle)
+    TWlogger.info("Statusids {}".format(' '.join(map(str, ids))))
+    api_tweets = api.statuses_lookup(list(ids.keys()), include_entities=True, tweet_mode='extended')
+    TWlogger.info("Adding Processed tweets to Database")
+    for tweet in api_tweets:
+        try:
+            if not TWdbacc.tweetExists(tweet.id_str):
+                TWdbacc.add_tweet(tweet, ids[tweet.id_str])
+
+        except Exception as e:
+            print("Exception Worker unable to process tweet [%s] [%s]", tweet.id_str, str(e))
+            TWlogger.error("tweetApi worker exception %s", str(e))
+            TWdbacc.session.rollback()
+            TWdbacc.increament_job("tweetApi", tweet.id_str)
+        TWdbacc.session.commit()
+    TWlogger.info("Done Adding Processed tweets to Database")
+    TWlogger.info("tweetApi * Finished")
 
 
 

@@ -70,6 +70,7 @@ class Job(Base):
 
     job_id = Column(Integer, primary_key=True, autoincrement=True)
     job_type = Column(String)
+    worker = Column(Integer)
     payload = Column(String)
     json = Column(JSON)
     status = Column(Integer, default=0)

@@ -16,9 +16,13 @@ DLlogger.info('Reading DB ini file')
 config = configparser.RawConfigParser()
 config.read('config.ini')
 dbname = config.get('database', 'sqlite_file')
+#dbname='septoct'
 
 engine = create_engine('sqlite:///'+dbname, echo=True, connect_args={'check_same_thread': False},listeners= [MyListener()])
 #engine = create_engine('sqlite:///'+dbname, echo=True)
+#engine = create_engine('mysql://username:pass@localhost/')
+#engine.execute("CREATE DATABASE "+dbname)
+#engine.execute("USE "+dbname)
 session_factory  = sessionmaker(bind=engine)
 Session = scoped_session(session_factory)
 
