@@ -101,7 +101,7 @@ def main():
 
     # project tweets
     searchTerms = 'displaced OR immigrant OR migrant OR migration OR refugee OR asylum seeker OR trafficking OR border'
-    dateFrom = "2015-01-15"
+    dateFrom = "2015-08-01"
     dateToo = "2015-12-31"
 
     # mixed tweets 25 root tweets

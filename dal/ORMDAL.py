@@ -156,7 +156,7 @@ class TweetDal:
 
 
 
-        self.session.merge(tweet_obj)
+        self.session.add(tweet_obj)
         self.complete_job("tweetApi", tweet.id_str)
         self.session.commit()
 
@@ -256,7 +256,16 @@ class TweetDal:
         DLlogger.info('add_jobs[%s] -  Number: %i', jobtype, len(jobs))
         jobList = []
         for jobid in jobs:
-            jobList.append(Job(job_type=jobtype, payload=jobid[0], json=jobid[1]))
+            if jobtype =='tweet':
+                rand = random.randint(0,9)
+            elif jobtype =='tweetApi':
+                rand = random.randint(0, 2)
+            elif jobtype == 'userApi':
+                rand = 0
+            else:
+                rand=0
+
+            jobList.append(Job(job_type=jobtype, worker = rand ,payload=jobid[0], json=jobid[1]))
 
         self.session.bulk_save_objects(jobList)
         self.session.commit()
