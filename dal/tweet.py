@@ -1,48 +1,49 @@
-from sqlalchemy import Column, String, Integer, Date , UniqueConstraint, Boolean, JSON
+from sqlalchemy import Column, String, Integer, Date , UniqueConstraint, Boolean, JSON, Text
 
 from .base import Base
 
 
 class Tweet(Base):
     __tablename__ = 'tweets'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset' : 'utf8mb4'}
 
-    created_at = Column(String)
-    id = Column(String, primary_key=True)
-    text = Column(String)
-    source = Column(String)
-    in_reply_to_status_id = Column(String)
-    in_reply_to_user_id = Column(String)
-    in_reply_to_screen_name = Column(String)
+    created_at = Column(String(64))
+    id = Column(String(64), primary_key=True)
+    text = Column(Text)
+    source = Column(String(128))
+    in_reply_to_status_id = Column(String(64))
+    in_reply_to_user_id = Column(String(64))
+    in_reply_to_screen_name = Column(String(64))
     isReply = Column(Boolean)
-    user_id = Column(String)
-    screen_name = Column(String)
+    user_id = Column(String(64))
+    screen_name = Column(String(64))
     isVerified = Column(Boolean)
-    coordinates = Column(String)
+    coordinates = Column(String(128))
     place = Column(Integer)   # 1 if place details present otherwise 0
-    place_country = Column(String)
-    place_country_code = Column(String)
-    place_full_name = Column(String)
-    place_id = Column(String)
-    place_name = Column(String)
-    place_type = Column(String)
-    place_coord0 = Column(String)
-    place_coord1 = Column(String)
-    place_coord2 = Column(String)
-    place_coord3 = Column(String)
+    place_country = Column(String(512))
+    place_country_code = Column(String(512))
+    place_full_name = Column(String(512))
+    place_id = Column(String(512))
+    place_name = Column(String(512))
+    place_type = Column(String(512))
+    place_coord0 = Column(String(512))
+    place_coord1 = Column(String(512))
+    place_coord2 = Column(String(512))
+    place_coord3 = Column(String(512))
 
-    quoted_status_id = Column(String)
+    quoted_status_id = Column(String(512))
     is_quote_status = Column(Boolean)
-    quoted_status = Column(String)
-    retweeted_status = Column(String)
+    quoted_status = Column(Text)
+    retweeted_status = Column(Text)
     isRetweet = Column(Boolean)
     quote_count = Column(Integer, default=0)
     reply_count = Column(Integer, default=0)
     retweet_count = Column(Integer,default=0)
     favorite_count = Column(Integer, default=0)
     contributors = Column(Boolean)
-    lang = Column(String)
+    lang = Column(String(512))
     truncated = Column(Boolean)
-    conversationid = Column(String)
+    conversationid = Column(String(64))
     isConversation = Column(Boolean)
     #Other fields relevant
     hasMedia = Column(Boolean, default=False)
@@ -54,9 +55,12 @@ class Tweet(Base):
     isSensitive = Column(Boolean, default=False)
 
 
-    ts_source = Column(String)
+    ts_source = Column(String(512))
     projectID = Column(Integer)
-    sourceTweetStatusID = Column(String)
+    sourceTweetStatusID = Column(String(512))
+
+
+
 
     # def __init__(self, id ,created_at, text, source,in_reply_to_status_id):
     #     self.id = id
@@ -67,16 +71,17 @@ class Tweet(Base):
 
 class Job(Base):
     __tablename__ = 'jobs'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     job_id = Column(Integer, primary_key=True, autoincrement=True)
-    job_type = Column(String)
+    job_type = Column(String(10))
     worker = Column(Integer)
-    payload = Column(String)
+    payload = Column(String(64))
     json = Column(JSON)
     status = Column(Integer, default=0)
     retries = Column(Integer, default=0)
-    begin_date = Column(String)
-    end_date = Column(String)
+    begin_date = Column(String(512))
+    end_date = Column(String(512))
     UniqueConstraint(job_type, payload, sqlite_on_conflict='IGNORE')
 
     # def __init__(self ,job_type, payload):
@@ -86,14 +91,15 @@ class Job(Base):
 
 class User(Base):
     __tablename__ = 'users'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    user_id = Column(String, primary_key=True)
-    name = Column(String)
-    screen_name = Column(String)
-    location = Column(String)
-    url = Column(String)
-    description = Column(String)
-    derived = Column(String)
+    user_id = Column(String(512), primary_key=True)
+    name = Column(String(512))
+    screen_name = Column(String(512))
+    location = Column(String(512))
+    url = Column(Text)
+    description = Column(Text)
+    derived = Column(String(512))
     protected = Column(Boolean)
     verified = Column(Boolean)
     followers_count = Column(Integer)
@@ -101,13 +107,13 @@ class User(Base):
     listed_count = Column(Integer)
     favourites_count = Column(Integer)
     statuses_count = Column(Integer)
-    created_at = Column(String)
+    created_at = Column(String(512))
     geo_enabled = Column(Boolean)
-    lang = Column(String)
+    lang = Column(String(12))
     default_profile = Column(Boolean)
     default_profile_image = Column(Boolean)
-    withheld_in_countries = Column(String)
-    withheld_scope = Column(String)
+    withheld_in_countries = Column(String(512))
+    withheld_scope = Column(String(512))
     contributors_enabled = Column(Boolean)
     has_extended_profile = Column(Boolean)
     is_translation_enabled = Column(Boolean)
@@ -116,57 +122,63 @@ class User(Base):
 
 class Mention(Base):
     __tablename__ = 'mentions'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String)
-    user_id = Column(String)
-    name = Column(String)
-    screen_name = Column(String)
+    tweet_id = Column(String(64))
+    user_id = Column(String(64))
+    name = Column(String(64))
+    screen_name = Column(String(64))
 
 class Url(Base):
     __tablename__ = 'urls'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String)
-    url = Column(String)
-    expanded_url = Column(String)
-    display_url = Column(String)
+    tweet_id = Column(String(64))
+    url = Column(String(512))
+    expanded_url = Column(Text)
+    display_url = Column(Text)
 
 class Hashtag(Base):
     __tablename__ = 'hashtags'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String)
-    text = Column(String)
+    tweet_id = Column(String(64))
+    text = Column(String(512))
 
 class Symbol(Base):
     __tablename__ = 'symbols'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String)
-    text = Column(String)
+    tweet_id = Column(String(64))
+    text = Column(String(512))
 
 class Media(Base):
     __tablename__ = 'media'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String)
-    display_url = Column(String)
-    expanded_url = Column(String)
-    id_str = Column(String)
-    media_url = Column(String)
-    media_url_https = Column(String)
-    source_status_id_str = Column(String)
-    type = Column(String)
+    tweet_id = Column(String(64))
+    display_url = Column(String(512))
+    expanded_url = Column(Text)
+    id_str = Column(String(64))
+    media_url = Column(Text)
+    media_url_https = Column(Text)
+    source_status_id_str = Column(String(64))
+    type = Column(String(512))
 
 class Project(Base):
     __tablename__ = 'project'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     proj_id = Column(Integer, primary_key=True)
-    query_string = Column(String)
-    username = Column(String)  #can be multiple
-    since = Column(String)
-    until = Column(String)
+    query_string = Column(String(512))
+    username = Column(String(512))  #can be multiple
+    since = Column(String(512))
+    until = Column(String(512))
     max_tweets = Column(Integer)
     top_tweets = Column(Boolean)
     saveComments = Column(Boolean)

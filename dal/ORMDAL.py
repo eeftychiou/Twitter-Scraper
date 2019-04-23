@@ -2,7 +2,8 @@ import configparser
 import logging, sys, json, random
 from datetime import datetime
 from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media, Project
-from .base import Session, engine, Base
+from .base import create_mysql_pool, Base
+from sqlalchemy.orm import scoped_session, sessionmaker
 import tools
 
 if sys.version_info[0] < 3:
@@ -16,13 +17,13 @@ DLlogger = logging.getLogger('DL')
 class TweetDal:
 
     def __init__(self):
-        DLlogger.info('TweetDal * Init *')
-        DLlogger.info('Reading DB ini file')
-        config = configparser.RawConfigParser()
-        config.read('config.ini')
 
-        Base.metadata.create_all(engine)
-        self.session = Session
+        mysql_pool = create_mysql_pool()
+        session_factory = sessionmaker(mysql_pool)
+
+        Base.metadata.create_all(mysql_pool)
+        self.session  = scoped_session(session_factory)
+
 
     def add_tweet(self, tweet, jsonstr):
         """
@@ -188,15 +189,16 @@ class TweetDal:
         if hasattr(tweet,"quoted_status_id_str"):
             tweet_obj.quoted_status_id = tweet.quoted_status_id_str
             if not self.tweetExists(tweet_obj.quoted_status_id) and tweet_obj.quoted_status_id != None:
-                pdict={}
-                pdict['username'] = tweet.quoted_status.author.screen_name
-                pdict['sourceTweetStatusID'] = tweet_obj.id
-                pdict['projectID'] = tweet_obj.projectID
-                self.add_job('tweet',random.randint(0,9), (tweet_obj.quoted_status_id,json.dumps(pdict)))
-                self.session.commit()
-                if not self.userExists(tweet.quoted_status.author.id_str):
-                    self.add_user(tweet.quoted_status.author)
+                if hasattr(tweet, "quoted_status"):
+                    pdict={}
+                    pdict['username'] = tweet.quoted_status.author.screen_name
+                    pdict['sourceTweetStatusID'] = tweet_obj.id
+                    pdict['projectID'] = tweet_obj.projectID
+                    self.add_job('tweet',random.randint(0,9), (tweet_obj.quoted_status_id,json.dumps(pdict)))
                     self.session.commit()
+                    if not self.userExists(tweet.quoted_status.author.id_str):
+                        self.add_user(tweet.quoted_status.author)
+                        self.session.commit()
 
         if  hasattr(tweet, "retweeted_status"):
             tweet_obj.retweeted_status = tweet.quoted_status.retweeted_status.id
@@ -244,7 +246,11 @@ class TweetDal:
 
         DLlogger.info('add_job - %s - %s - %i', jobtype, payload[0],worker)
         job_obj = Job(job_type=jobtype,worker=worker, payload=payload[0], json=payload[1])
-        self.session.add(job_obj)
+        tab = Job.__table__
+        res = tab.insert().prefix_with('IGNORE').values(job_type=jobtype, worker=worker, payload=payload[0],
+                                                        json=payload[1])
+        self.session.execute(res)
+        #self.session.add(job_obj)
         self.session.commit()
 
     def add_jobs(self, jobtype, jobs):
@@ -265,9 +271,13 @@ class TweetDal:
             else:
                 rand=0
 
-            jobList.append(Job(job_type=jobtype, worker = rand ,payload=jobid[0], json=jobid[1]))
+            tab = Job.__table__
+            res = tab.insert().prefix_with('IGNORE').values(job_type=jobtype, worker=rand, payload=jobid[0],
+                                                            json=jobid[1])
+            self.session.execute(res)
+            #jobList.append(Job(job_type=jobtype, worker = rand ,payload=jobid[0], json=jobid[1]))
 
-        self.session.bulk_save_objects(jobList)
+        #self.session.bulk_save_objects(jobList)
         self.session.commit()
 
     def add_mention(self, mention, tweet_id):
@@ -491,6 +501,8 @@ class TweetDal:
         if hasattr(user, "statuses_count"): user_obj.statuses_count = user.statuses_count
         if hasattr(user, "url"): user_obj.url = user.url
         if hasattr(user, "verified"): user_obj.verified = user.verified
+
+
 
         try:
             self.session.merge(user_obj)
