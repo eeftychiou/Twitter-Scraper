@@ -82,7 +82,7 @@ class Job(Base):
     retries = Column(Integer, default=0)
     begin_date = Column(String(512))
     end_date = Column(String(512))
-    UniqueConstraint(job_type, payload, sqlite_on_conflict='IGNORE')
+    UniqueConstraint(job_type, payload)
 
     # def __init__(self ,job_type, payload):
     #

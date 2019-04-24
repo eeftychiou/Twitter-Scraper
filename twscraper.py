@@ -265,15 +265,13 @@ def TWconsumer(toggle):
             TWlogger.info("%s - TS * Tweet Scrapper Disabled", toggle)
             return
 
-        StopCmd = TWdbacc.get_jobs('STOP',1,None)
+        StopCmd = TWdbacc.getStops()
 
         if StopCmd:
-            TWdbacc.complete_job('STOP',None)
-            TWdbacc.add_job("STOP",worker=None, payload=[None,None])
             TWlogger.info("%s Received Stop Command exiting",toggle)
             print("{} Received Stop Command exiting".format(toggle))
             exit(0)
-        time.sleep(60)
+        time.sleep(1)
 
 
 

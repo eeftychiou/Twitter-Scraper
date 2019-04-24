@@ -4,6 +4,8 @@ from datetime import datetime
 from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media, Project
 from .base import create_mysql_pool, Base
 from sqlalchemy.orm import scoped_session, sessionmaker
+import warnings, MySQLdb
+warnings.filterwarnings('ignore', category=MySQLdb.Warning)
 
 import tools
 
@@ -247,6 +249,19 @@ class TweetDal:
         self.session.execute(res)
         self.session.commit()
 
+    def getStops(self):
+        """
+        Check is stop command is in job queue
+        :return:
+        """
+        DLlogger.info('getStops - Entered')
+
+        stop = self.session.query(Job.job_type).filter(Job.job_type=='STOP').filter(Job.status==0).filter(Job.begin_date == None).scalar() is not None
+        DLlogger.info('getStops - %s',stop)
+        return stop
+
+
+
     def add_job(self, jobtype, worker, payload):
         """
         Adds a single job to the task queue
@@ -259,9 +274,11 @@ class TweetDal:
         tab = Job.__table__
         res = tab.insert().prefix_with('IGNORE').values(job_type=jobtype, worker=worker, payload=payload[0],
                                                         json=payload[1])
-        self.session.execute(res)
-        #self.session.add(job_obj)
-        self.session.commit()
+        try:
+            self.session.execute(res)
+            self.session.commit()
+        except Exception as e:
+            print(str(e))
 
     def add_jobs(self, jobtype, jobs):
         """
@@ -284,11 +301,13 @@ class TweetDal:
             tab = Job.__table__
             res = tab.insert().prefix_with('IGNORE').values(job_type=jobtype, worker=rand, payload=jobid[0],
                                                             json=jobid[1])
-            self.session.execute(res)
-            #jobList.append(Job(job_type=jobtype, worker = rand ,payload=jobid[0], json=jobid[1]))
 
-        #self.session.bulk_save_objects(jobList)
-        self.session.commit()
+            try:
+                self.session.execute(res)
+                self.session.commit()
+            except Exception as e:
+                print (str(e))
+
 
     def add_mention(self, mention, tweet_id):
         """
@@ -367,14 +386,15 @@ class TweetDal:
         :return:
         """
         end_date = str(datetime.now())
-        job_obj = self.session.query(Job).filter(Job.job_type == jobtype).filter(Job.payload == payload).first()
 
-        if job_obj:
-            job_obj.end_date = end_date
-            job_obj.status = 2
-            self.session.merge(job_obj)
+        res = Job.__table__.update().where(Job.job_type==jobtype).where(Job.payload == payload).values(status=2, end_date = end_date)
 
-        self.session.commit()
+        try:
+            self.session.execute(res)
+            self.session.commit()
+        except Exception as e:
+            print (str(e))
+
 
 
 
@@ -406,13 +426,14 @@ class TweetDal:
         """
         end_date = str(datetime.now())
         job_obj = self.session.query(Job).filter(Job.job_type == jobtype).filter(Job.payload == payload).first()
+        newretries = job_obj.retries + 1
+        res = Job.__table__.update().where(Job.job_type==jobtype).where(Job.payload == payload).values(status=0, begin_date = None, retries = Job.retries +1)
 
-        if job_obj:
-            job_obj.retries += 1
-            job_obj.status = 0
-            job_obj.begin_date = None
-            self.session.add(job_obj)
+        try:
+            self.session.execute(res)
             self.session.commit()
+        except Exception as e:
+            print (str(e))
 
     def tweetExists(self, tweetID):
         DLlogger.info('tweetExists ')
@@ -486,43 +507,50 @@ class TweetDal:
         """
         DLlogger.info('add_user ')
         #create object
-        user_obj = User(user_id= user.id_str)
+        #user_obj = User(user_id= user.id_str)
 
-        if hasattr(user, "contributors_enabled"): user_obj.contributors_enabled = user.contributors_enabled
-        if hasattr(user, "created_at"): user_obj.created_at = user.created_at
-        if hasattr(user, "default_profile"): user_obj.default_profile = user.default_profile
-        if hasattr(user, "default_profile_image"): user_obj.default_profile_image = user.default_profile_image
-        if hasattr(user, "description"): user_obj.description = user.description
-        if hasattr(user, "favourites_count"): user_obj.favourites_count = user.favourites_count
-        if hasattr(user, "followers_count"): user_obj.followers_count = user.followers_count
-        if hasattr(user, "following"): user_obj.following = user.following
-        if hasattr(user, "friends_count"): user_obj.friends_count = user.friends_count
-        if hasattr(user, "geo_enabled"): user_obj.geo_enabled = user.geo_enabled
-        if hasattr(user, "has_extended_profile"): user_obj.has_extended_profile = user.has_extended_profile
-        if hasattr(user, "is_translation_enabled"): user_obj.is_translation_enabled = user.is_translation_enabled
-        if hasattr(user, "is_translator"): user_obj.is_translator = user.is_translator
-        if hasattr(user, "lang"): user_obj.lang = user.lang
-        if hasattr(user, "listed_count"): user_obj.listed_count = user.listed_count
-        if hasattr(user, "location"): user_obj.location = user.location
-        if hasattr(user, "name"): user_obj.name = user.name
-        if hasattr(user, "notifications"): user_obj.notifications = user.notifications
-        if hasattr(user, "protected"): user_obj.protected = user.protected
-        if hasattr(user, "screen_name"): user_obj.screen_name = user.screen_name
-        if hasattr(user, "statuses_count"): user_obj.statuses_count = user.statuses_count
-        if hasattr(user, "url"): user_obj.url = user.url
-        if hasattr(user, "verified"): user_obj.verified = user.verified
+        user_obj={}
+        user_obj['user_id'] = user.id_str
+
+        if hasattr(user, "contributors_enabled"): user_obj['contributors_enabled'] = user.contributors_enabled
+        if hasattr(user, "created_at"): user_obj['created_at'] = user.created_at
+        if hasattr(user, "default_profile"): user_obj['default_profile'] = user.default_profile
+        if hasattr(user, "default_profile_image"): user_obj['default_profile_image'] = user.default_profile_image
+        if hasattr(user, "description"): user_obj['description'] = user.description
+        if hasattr(user, "favourites_count"): user_obj['favourites_count'] = user.favourites_count
+        if hasattr(user, "followers_count"): user_obj['followers_count'] = user.followers_count
+        if hasattr(user, "friends_count"): user_obj['friends_count'] = user.friends_count
+        if hasattr(user, "geo_enabled"): user_obj['geo_enabled']= user.geo_enabled
+        if hasattr(user, "has_extended_profile"): user_obj['has_extended_profile'] = user.has_extended_profile
+        if hasattr(user, "is_translation_enabled"): user_obj['is_translation_enabled'] = user.is_translation_enabled
+        if hasattr(user, "is_translator"): user_obj['is_translator'] = user.is_translator
+        if hasattr(user, "lang"): user_obj['lang'] = user.lang
+        if hasattr(user, "listed_count"): user_obj['listed_count'] = user.listed_count
+        if hasattr(user, "location"): user_obj['location'] = user.location
+        if hasattr(user, "name"): user_obj['name'] = user.name
+        if hasattr(user, "notifications"): user_obj['notifications'] = user.notifications
+        if hasattr(user, "protected"): user_obj['protected'] = user.protected
+        if hasattr(user, "screen_name"): user_obj['screen_name'] = user.screen_name
+        if hasattr(user, "statuses_count"): user_obj['statuses_count'] = user.statuses_count
+        if hasattr(user, "url"): user_obj['url'] = user.url
+        if hasattr(user, "verified"): user_obj['verified'] = user.verified
+
+        ins = User.__table__.insert().prefix_with('IGNORE').values( user_obj )
+
 
 
 
         try:
-            self.session.merge(user_obj)
-            self.complete_job("userApi", user_obj.user_id)
-            DLlogger.info('User ID  %s added', user_obj.user_id)
+            self.session.execute(ins)
             self.session.commit()
+            self.complete_job("userApi", user.id_str)
+            DLlogger.info('User ID  %s added', user_obj['user_id'])
+
         except Exception as e:
             DLlogger.error('add_user * Exception[%s] in User ID  %s ', user.id_str, str(e))
-            print ('add_user * Exception[%s] in User ID  %s ' %(user_obj.user_id,str(e)))
-            self.session.rollback()
+            print('add_user * Exception[%s] in User ID  %s ' % (user_obj.user_id, str(e)))
+
+
 
 
     def add_project(self, Criteria):
