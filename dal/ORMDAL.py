@@ -4,6 +4,7 @@ from datetime import datetime
 from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media, Project
 from .base import create_mysql_pool, Base
 from sqlalchemy.orm import scoped_session, sessionmaker
+
 import tools
 
 if sys.version_info[0] < 3:
@@ -236,6 +237,15 @@ class TweetDal:
 
         DLlogger.info('Tweet ID  %i added', tweet.id)
 
+    def clearStops(self):
+        """
+        Completes any pending STOP commands
+        :return:
+        """
+        DLlogger.info('clearStops - Entered')
+        res = Job.__table__.update().where(Job.job_type=='STOP' and Job.status==0).values(status=2)
+        self.session.execute(res)
+        self.session.commit()
 
     def add_job(self, jobtype, worker, payload):
         """
@@ -407,7 +417,7 @@ class TweetDal:
     def tweetExists(self, tweetID):
         DLlogger.info('tweetExists ')
 
-        id = self.session.query(Tweet).filter_by(id=tweetID).first()
+        id = self.session.query(Tweet.id).filter(Tweet.id==tweetID).first()
 
         if id == None:
             DLlogger.info('There is no tweet named %s' % tweetID)
@@ -419,7 +429,7 @@ class TweetDal:
     def jobExists(self, jobtype, tweetID):
         DLlogger.info('tweetExists ')
 
-        id = self.session.query(Job).filter(Job.job_type == jobtype).filter(Job.payload==tweetID).first()
+        id = self.session.query(Job.job_type,Job.payload).filter(Job.job_type == jobtype).filter(Job.payload==tweetID).first()
 
         if id == None:
             DLlogger.info('There is no job[%s] named %s' , jobtype, tweetID)
@@ -431,7 +441,7 @@ class TweetDal:
     def userExists(self, userID):
         DLlogger.info('userExists')
 
-        id = self.session.query(User).filter_by(user_id=userID).first()
+        id = self.session.query(User.user_id).filter(User.user_id==userID).first()
 
         if id == None:
             DLlogger.info('There is no user named %s' % userID)

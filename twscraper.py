@@ -71,6 +71,9 @@ def main():
     # start consumer and continue scrapping
     consumersEnabled = config.getboolean("consumers", 'enabled')
     if consumersEnabled:
+        logger.info("Removing any stop commands")
+        dbacc.clearStops()
+
         logger.info("Starting Workers")
         opList = config.get('consumers','consumers_cfg').strip().split(',')
 
@@ -111,8 +114,8 @@ def main():
 
     # project tweets
     searchTerms = 'displaced OR immigrant OR migrant OR migration OR refugee OR asylum seeker OR trafficking OR border'
-    dateFrom = "2015-08-01"
-    dateToo = "2015-12-31"
+    dateFrom = "2016-01-01"
+    dateToo = "2016-01-31"
 
     # mixed tweets 25 root tweets
     # searchTerms = 'black hole heart'
@@ -169,7 +172,14 @@ def main():
         tweets = TM.getTweets(tweetCriteria)
 
         if useProxy:
-            logger.info("Proxies remaining in num_list are: {}".format(' '.join(map(str, TM.proxies))))
+            now = datetime.now()
+            if (now.minute % 10) == 0:
+                logger.info("Proxies in list are: {}".format(' '.join(map(str, TM.proxies))))
+                logger.info("Proxies Weights in list are: {}".format(' '.join(map(str, TM.proxiesWeights))))
+                logger.info("Proxies Weights len [%i] sum [%i]", len(TM.proxiesWeights), sum(TM.proxiesWeights))
+
+
+
 
         data={}
         if savetocsv:
@@ -255,6 +265,17 @@ def TWconsumer(toggle):
             TWlogger.info("%s - TS * Tweet Scrapper Disabled", toggle)
             return
 
+        StopCmd = TWdbacc.get_jobs('STOP',1,None)
+
+        if StopCmd:
+            TWdbacc.complete_job('STOP',None)
+            TWdbacc.add_job("STOP",worker=None, payload=[None,None])
+            TWlogger.info("%s Received Stop Command exiting",toggle)
+            print("{} Received Stop Command exiting".format(toggle))
+            exit(0)
+        time.sleep(60)
+
+
 
 
 
@@ -278,12 +299,13 @@ def processUser(TWdbacc, TWlogger, api, toggle):
             if not TWdbacc.userExists(userid):
                 user = api.get_user(user_id=userid)
                 try:
-                    TWdbacc.add_user(user)
+                    if not TWdbacc.userExists(userid):
+                        TWdbacc.add_user(user)
 
                 except Exception as e:
                     print("Exception userApi worker ", str(e))
                     TWlogger.error("%s - userApi worker exception %s",toggle, str(e))
-                    TWdbacc.session.rollback()
+                    #TWdbacc.session.rollback()
                     TWdbacc.increament_job('userApi', userid)
                 TWdbacc.session.commit()
         except tweepy.TweepError as e:
@@ -300,7 +322,7 @@ def processTweet(TMW, TWdbacc, TWlogger, maxComments, saveComments, saveComments
 
     if useProxy:
         now = datetime.now()
-        if (now.minute%5)==0:
+        if (now.minute%10)==0:
             TWlogger.info("Proxies in list are: {}".format(' '.join(map(str, TMW.proxies))))
             TWlogger.info("Proxies Weights in list are: {}".format(' '.join(map(str, TMW.proxiesWeights))))
             TWlogger.info("Proxies Weights len [%i] sum [%i]", len(TMW.proxiesWeights), sum(TMW.proxiesWeights))
@@ -371,7 +393,7 @@ def processTweetApi(TWdbacc, TWlogger, api, toggle):
                 TWdbacc.add_tweet(tweet, ids[tweet.id_str])
 
         except Exception as e:
-            print("Exception Worker unable to process tweet [%s] [%s]", tweet.id_str, str(e))
+            print("Exception Worker unable to process tweet ", tweet.id_str, str(e))
             TWlogger.error("%s - tweetApi worker exception %s",toggle, str(e))
             TWdbacc.session.rollback()
             TWdbacc.increament_job("tweetApi", tweet.id_str)

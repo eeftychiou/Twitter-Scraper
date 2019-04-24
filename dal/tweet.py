@@ -11,12 +11,12 @@ class Tweet(Base):
     id = Column(String(64), primary_key=True)
     text = Column(Text)
     source = Column(String(128))
-    in_reply_to_status_id = Column(String(64))
-    in_reply_to_user_id = Column(String(64))
+    in_reply_to_status_id = Column(String(64), index=True)
+    in_reply_to_user_id = Column(String(64) , index= True)
     in_reply_to_screen_name = Column(String(64))
     isReply = Column(Boolean)
-    user_id = Column(String(64))
-    screen_name = Column(String(64))
+    user_id = Column(String(64),index= True)
+    screen_name = Column(String(64),index= True)
     isVerified = Column(Boolean)
     coordinates = Column(String(128))
     place = Column(Integer)   # 1 if place details present otherwise 0
@@ -31,7 +31,7 @@ class Tweet(Base):
     place_coord2 = Column(String(512))
     place_coord3 = Column(String(512))
 
-    quoted_status_id = Column(String(512))
+    quoted_status_id = Column(String(64),index= True)
     is_quote_status = Column(Boolean)
     quoted_status = Column(Text)
     retweeted_status = Column(Text)
@@ -43,7 +43,7 @@ class Tweet(Base):
     contributors = Column(Boolean)
     lang = Column(String(512))
     truncated = Column(Boolean)
-    conversationid = Column(String(64))
+    conversationid = Column(String(64),index= True)
     isConversation = Column(Boolean)
     #Other fields relevant
     hasMedia = Column(Boolean, default=False)
@@ -57,7 +57,7 @@ class Tweet(Base):
 
     ts_source = Column(String(512))
     projectID = Column(Integer)
-    sourceTweetStatusID = Column(String(512))
+    sourceTweetStatusID = Column(String(64))
 
 
 
@@ -74,9 +74,9 @@ class Job(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     job_id = Column(Integer, primary_key=True, autoincrement=True)
-    job_type = Column(String(10))
-    worker = Column(Integer)
-    payload = Column(String(64))
+    job_type = Column(String(10),index= True)
+    worker = Column(Integer,index= True)
+    payload = Column(String(64),index= True)
     json = Column(JSON)
     status = Column(Integer, default=0)
     retries = Column(Integer, default=0)
@@ -95,7 +95,7 @@ class User(Base):
 
     user_id = Column(String(512), primary_key=True)
     name = Column(String(512))
-    screen_name = Column(String(512))
+    screen_name = Column(String(64),index= True)
     location = Column(String(512))
     url = Column(Text)
     description = Column(Text)
@@ -125,7 +125,7 @@ class Mention(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String(64))
+    tweet_id = Column(String(64),index= True)
     user_id = Column(String(64))
     name = Column(String(64))
     screen_name = Column(String(64))
@@ -135,7 +135,7 @@ class Url(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String(64))
+    tweet_id = Column(String(64),index= True)
     url = Column(String(512))
     expanded_url = Column(Text)
     display_url = Column(Text)
@@ -145,7 +145,7 @@ class Hashtag(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String(64))
+    tweet_id = Column(String(64),index= True)
     text = Column(String(512))
 
 class Symbol(Base):
@@ -153,7 +153,7 @@ class Symbol(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String(64))
+    tweet_id = Column(String(64),index= True)
     text = Column(String(512))
 
 class Media(Base):
@@ -161,7 +161,7 @@ class Media(Base):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     id = Column(Integer, primary_key=True)
-    tweet_id = Column(String(64))
+    tweet_id = Column(String(64),index= True)
     display_url = Column(String(512))
     expanded_url = Column(Text)
     id_str = Column(String(64))
