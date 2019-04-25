@@ -82,14 +82,9 @@ def main():
             processID = Process(target=TWconsumer, args=(op,))
             TW_process.append(processID)
             processID.start()
+            time.sleep(5)
 
 
-        # TW_thread=[]
-        # for op in opList:
-        #     thrID =     threading.Thread(target=TWconsumer, args=(op,))
-        #     TW_thread.append(thrID)
-        #     thrID.start()
-        #     time.sleep(2)
 
     if not webscraper:
         logger.info("Websraper is disabled * exiting main thread *")
@@ -195,7 +190,7 @@ def main():
 
 # TODO move into own package
 def TWconsumer(toggle):
-    import logging.config
+
 
 
     logging.config.fileConfig('logConfig.cfg')

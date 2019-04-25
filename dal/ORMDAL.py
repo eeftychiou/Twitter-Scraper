@@ -3,7 +3,7 @@ import logging, sys, json, random
 from datetime import datetime
 from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media, Project
 from .base import create_mysql_pool, Base
-from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker,load_only
 import warnings, MySQLdb
 warnings.filterwarnings('ignore', category=MySQLdb.Warning)
 
@@ -15,6 +15,7 @@ else:
     pass
 
 DLlogger = logging.getLogger('DL')
+
 
 
 class TweetDal:
@@ -34,7 +35,7 @@ class TweetDal:
                json : json object with additional information gathered from the scrapper if available
         :return:
         """
-        DLlogger.info('insert_tweet ')
+        DLlogger.info('add_tweet %s',tweet.id)
 
         #create object
         tweet_obj = Tweet(id=tweet.id,
@@ -316,7 +317,7 @@ class TweetDal:
         :return:
         """
 
-        DLlogger.info('add_mention - %s - %s',  mention['screen_name'])
+        DLlogger.info('add_mention - %s  %s',tweet_id,  mention['screen_name'])
         men_obj = Mention(tweet_id=tweet_id, user_id=mention['id_str'], name = mention['name'], screen_name = mention['screen_name'])
         self.session.add(men_obj)
         self.session.commit()
@@ -328,7 +329,7 @@ class TweetDal:
         :return:
         """
 
-        DLlogger.info('add_url - %s - %s', url['expanded_url'])
+        DLlogger.info('add_url - %s - %s',tweet_id, url['expanded_url'])
         url_obj = Url(tweet_id=tweet_id, url=url['url'], expanded_url = url['expanded_url'], display_url = url['display_url'])
         self.session.add(url_obj)
         self.session.commit()
@@ -340,7 +341,7 @@ class TweetDal:
         :return:
         """
 
-        DLlogger.info('add_hashtag - %s - %s', hashtag['text'])
+        DLlogger.info('add_hashtag - %s - %s',tweet_id, hashtag['text'])
         has_obj = Hashtag(tweet_id=tweet_id, text=hashtag['text'])
         self.session.add(has_obj)
         self.session.commit()
@@ -352,7 +353,7 @@ class TweetDal:
         :return:
         """
 
-        DLlogger.info('add_symbol - %s - %s', symbol['text'])
+        DLlogger.info('add_symbol - %s - %s',tweet_id, symbol['text'])
         sym_obj = Symbol(tweet_id=tweet_id, text=symbol['text'])
         self.session.add(sym_obj)
         self.session.commit()
@@ -364,7 +365,7 @@ class TweetDal:
         :return:
         """
 
-        DLlogger.info('add_media - %s - %s', media['expanded_url'])
+        DLlogger.info('add_media - %s - %s',tweet_id, media['expanded_url'])
         med_obj = Media(tweet_id=tweet_id,
                         display_url=media['display_url'],
                         expanded_url = media['expanded_url'],
@@ -437,6 +438,7 @@ class TweetDal:
 
     def tweetExists(self, tweetID):
         DLlogger.info('tweetExists ')
+        #Tweet.__table__.query
 
         id = self.session.query(Tweet.id).filter(Tweet.id==tweetID).first()
 
@@ -478,7 +480,7 @@ class TweetDal:
         :param jobtype:
         :return: a list of ids, this can be tweet_ids, user_ids but not mixed within the same list
         """
-        DLlogger.info('get_jobs[%i] - %s - %i', n, jobtype, worker)
+        DLlogger.info('get_jobs[%i] - %s - %s', n, jobtype, worker)
 
 
         jobs = self.session.query(Job).filter(Job.status == 0).\
