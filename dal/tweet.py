@@ -78,7 +78,7 @@ class Job(Base):
     worker = Column(Integer,index= True)
     payload = Column(String(64),index= True)
     json = Column(JSON)
-    status = Column(Integer, default=0)
+    status = Column(Integer,index=True, default=0)
     retries = Column(Integer, default=0)
     begin_date = Column(String(512))
     end_date = Column(String(512))
