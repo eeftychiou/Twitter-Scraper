@@ -115,15 +115,20 @@ def main():
     # project tweets
     searchTerms = 'displaced OR immigrant OR migrant OR migration OR refugee OR asylum seeker OR trafficking OR border'
     dateFrom = "2016-01-01"
-    dateToo = "2016-01-31"
+    dateToo = "2016-05-31"
+
+    terms = config.get('webscraper','terms').strip().split(',')
+    searchTerms = ' OR '.join(terms)
+    dateFrom = config.get('webscraper','dateFrom')
+    dateToo = config.get('webscraper','dateToo')
 
     # mixed tweets 25 root tweets
     # searchTerms = 'black hole heart'
     # dateFrom = "2019-04-01"
     # dateToo = "2019-04-03"
 
-    interval = 1   #days to sample each search
-    maxTweetPerInterval = -1
+    interval = config.getint('webscraper', 'interval')
+    maxTweetPerInterval = config.getint('webscraper', 'maxTweetPerInterval')
 
     dtFrom = datetime.strptime(dateFrom,'%Y-%m-%d')
     dtToo = datetime.strptime(dateToo,'%Y-%m-%d')

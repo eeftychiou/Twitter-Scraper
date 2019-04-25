@@ -4,6 +4,7 @@ from datetime import datetime
 from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media, Project
 from .base import create_mysql_pool, Base
 from sqlalchemy.orm import scoped_session, sessionmaker, load_only
+from sqlalchemy.sql import text
 import warnings, MySQLdb
 warnings.filterwarnings('ignore', category=MySQLdb.Warning)
 
@@ -28,6 +29,221 @@ class TweetDal:
         self.session  = scoped_session(session_factory)
 
 
+    def get_tweetDict(self, tweet, jsonstr):
+
+        # create dict
+        twDict = dict()
+        twDict['id'] = tweet.id
+        twDict['created_at'] = tweet.created_at
+
+        twScrap = json.loads(jsonstr)
+
+        if tweet.truncated:
+            twDict['truncated'] =True
+            twDict['text'] =twScrap['text']
+        else:
+            twDict['truncated'] =False
+            if hasattr(tweet, "text"):
+                twDict['text'] =tweet.text
+            elif hasattr(tweet, "full_text"):
+                twDict['text'] =tweet.full_text
+            else:
+                DLlogger.error('insert_tweet * missing text')
+                sys.exit(1)
+
+        if hasattr(tweet, "source"): twDict['source'] =tweet.source
+
+        if hasattr(tweet, "in_reply_to_status_id"):  twDict['in_reply_to_status_id'] =tweet.in_reply_to_status_id
+
+        if hasattr(tweet, "in_reply_to_user_id"): twDict['in_reply_to_user_id'] =tweet.in_reply_to_user_id
+
+        if hasattr(tweet, "in_reply_to_screen_name"): twDict['in_reply_to_screen_name'] =tweet.in_reply_to_screen_name
+
+        if twDict['in_reply_to_status_id']:
+            twDict['isReply'] =True
+        else:
+            twDict['isReply'] =False
+
+        if hasattr(tweet, "author"):
+            twDict['user_id'] =tweet.author.id_str
+            twDict['screen_name'] =tweet.author.screen_name
+            twDict['isVerified'] =tweet.author.verified
+
+        if hasattr(tweet, "lang"):
+            twDict['lang'] =tweet.lang
+
+        if tweet.place:
+            twDict['place'] =1
+            if hasattr(tweet.place, "country"): twDict['place_country'] =tweet.place.country
+            if hasattr(tweet.place, "country_code"): twDict['place_country_code'] =tweet.place.country_code
+            if hasattr(tweet.place, "full_name"): twDict['place_full_name'] =tweet.place.full_name
+            if hasattr(tweet.place, "id"): twDict['place_id'] =tweet.place.id
+            if hasattr(tweet.place, "name"): twDict['place_name'] =tweet.place.name
+            if hasattr(tweet.place, "place_type"): twDict['place_type'] =tweet.place.place_type
+
+            if hasattr(tweet.place.bounding_box, "coordinates"):
+                twDict['place_coord0'] =str(tweet.place.bounding_box.coordinates[0][0])
+                twDict['place_coord1'] =str(tweet.place.bounding_box.coordinates[0][1])
+                twDict['place_coord2'] =str(tweet.place.bounding_box.coordinates[0][2])
+                twDict['place_coord3'] =str(tweet.place.bounding_box.coordinates[0][3])
+        else:
+            twDict['place'] =0
+
+        if hasattr(tweet, "quoted_status_id_str"): twDict['quoted_status_id'] =tweet.quoted_status_id_str
+
+        if hasattr(tweet, "quoted_status"): twDict['quoted_status'] =tweet.quoted_status.full_text
+
+        if hasattr(tweet, "is_quote_status"): twDict['is_quote_status'] =tweet.is_quote_status
+
+        if hasattr(tweet, "retweeted_status"):
+            twDict['retweeted_status'] =tweet.quoted_status.retweeted_status.id
+            twDict['isRetweet'] =True
+        else:
+            twDict['isRetweet'] =False
+
+        if hasattr(tweet, "quote_count"): twDict['quote_count'] = tweet.quote_count
+
+        twDict['reply_count'] = twScrap['replies'] or 0
+
+        if hasattr(tweet, "retweet_count"): twDict['retweet_count'] = tweet.retweet_count
+        if hasattr(tweet, "favorite_count"): twDict['favorite_count'] = tweet.favorite_count
+        if tweet.coordinates:
+            if tweet.coordinates['type'] == 'Point':
+                twDict['coordinates'] = ','.join(
+                    (str(tweet.coordinates['coordinates'][0]), str(tweet.coordinates['coordinates'][1])))
+            else:
+                print("Non suppported coordinates type found")
+
+        twDict['conversationid'] = twScrap['conversationid']
+        if twDict['conversationid']:
+            twDict['isConversation'] = True
+        else:
+            twDict['isConversation'] = False
+
+        # entities bools
+        if hasattr(tweet, "entities"):
+            if 'urls' in tweet.entities:
+                twDict['hasURL'] = bool(len(tweet.entities['urls']))
+            else:
+                twDict['hasURL'] = False
+
+            if 'hashtags' in tweet.entities:
+                twDict['hasHashtag'] = bool(len(tweet.entities['hashtags']))
+            else:
+                twDict['hasHashtag'] = False
+
+            if 'user_mentions' in tweet.entities:
+                twDict['hasMentions'] = bool(len(tweet.entities['user_mentions']))
+            else:
+                twDict['hasMentions'] = False
+
+            if 'symbols' in tweet.entities:
+                twDict['hasSymbols'] = bool(len(tweet.entities['symbols']))
+            else:
+                twDict['hasSymbols'] = False
+
+            if 'media' in tweet.entities:
+                twDict['hasMedia'] = bool(len(tweet.entities['media']))
+            else:
+                twDict['hasMedia'] = False
+
+        if hasattr(tweet, "possibly_sensitive"):
+            twDict['isSensitive'] = tweet.possibly_sensitive
+
+        twDict['ts_source'] = twScrap.get('ts_source')
+        twDict['projectID'] = twScrap.get('projectID')
+        twDict['sourceTweetStatusID'] = twScrap.get('sourceTweetStatusID')
+
+
+        ins = Tweet.__table__.insert().prefix_with('IGNORE').values( twDict )
+
+        try:
+            self.session.execute(ins)
+            self.session.commit()
+            self.complete_job("tweetApi", tweet.id_str)
+            DLlogger.info('Tweet ID  %s added', twDict['id'])
+        except Exception as e:
+            DLlogger.error('* Exception[%s] in tweet ID  %s ', tweet.id_str, str(e))
+            print('add_tweet * Exception[%s] in User ID  %s ' % (tweet.id_str, str(e)))
+
+
+        ######################################################
+        # Adding found tweets and users
+        ######################################################
+        if hasattr(tweet, "in_reply_to_status_id"):
+            twDict['in_reply_to_status_id'] = tweet.in_reply_to_status_id
+            if not self.tweetExists(twDict['in_reply_to_status_id']) and twDict['in_reply_to_status_id'] !=None:
+                pdict={}
+                pdict['username'] = tweet.in_reply_to_screen_name
+                pdict['sourceTweetStatusID'] = twDict['id']
+                pdict['projectID'] = twDict['projectID']
+                self.add_job('tweet',random.randint(0,9),(twDict['in_reply_to_status_id'],json.dumps(pdict)))
+                self.session.commit()
+
+        if hasattr(tweet, "in_reply_to_user_id"):
+            twDict['in_reply_to_user_id'] = tweet.in_reply_to_user_id
+            if not self.userExists(twDict['in_reply_to_user_id']) and twDict['in_reply_to_user_id'] != None:
+                self.add_job('userApi',0, (twDict['in_reply_to_user_id'],None))
+                self.session.commit()
+
+        if hasattr(tweet, "author"):
+            twDict['user_id'] = tweet.author.id_str
+            if not self.userExists(twDict['user_id']):
+                self.add_user(tweet.author)
+                self.session.commit()
+
+        if hasattr(tweet,"quoted_status_id_str"):
+            twDict['quoted_status_id'] = tweet.quoted_status_id_str
+            if not self.tweetExists(twDict['quoted_status_id']) and twDict['quoted_status_id'] != None:
+                if hasattr(tweet, "quoted_status"):
+                    pdict={}
+                    pdict['username'] = tweet.quoted_status.author.screen_name
+                    pdict['sourceTweetStatusID'] = twDict['id']
+                    pdict['projectID'] = twDict['projectID']
+                    self.add_job('tweet',random.randint(0,9), (twDict['quoted_status_id'],json.dumps(pdict)))
+                    self.session.commit()
+                    if not self.userExists(tweet.quoted_status.author.id_str):
+                        self.add_user(tweet.quoted_status.author)
+                        self.session.commit()
+
+        if  hasattr(tweet, "retweeted_status"):
+            twDict['retweeted_status'] = tweet.quoted_status.retweeted_status.id
+            if not self.tweetExists(twDict['retweeted_status']) and twDict['retweeted_status'] !=None:
+                pdict={}
+                pdict['username'] = tweet.quoted_status.author.screen_name
+                pdict['sourceTweetStatusID'] = twDict['id']
+                pdict['projectID'] = twDict['projectID']
+                self.add_job('tweet',random.randint(0,9),(twDict['retweeted_status'],json.dumps(pdict)))
+                self.session.commit()
+
+        #####################
+        # Processing Entities
+        #####################
+
+        #Mentions
+        if twDict['hasMentions']:
+            for mention in tweet.entities['user_mentions']:
+                #add to jobs for processing if not present
+                if not self.userExists(mention['id']):
+                    self.add_job('userApi',0, (mention['id'],None))
+                self.add_mention(mention,tweet.id_str)
+
+        if twDict['hasURL']:
+            for url in tweet.entities['urls']:
+                self.add_url(url, tweet.id_str)
+
+        if twDict['hasHashtag']:
+            for hashtag in tweet.entities['hashtags']:
+                self.add_hashtag(hashtag, tweet.id_str)
+
+        if twDict['hasMedia']:
+            for media in tweet.extended_entities['media']:
+                self.add_media(media,tweet.id_str)
+
+        DLlogger.info('Tweet ID  %i added', tweet.id)
+
+
+
     def add_tweet(self, tweet, jsonstr):
         """
         :param tweet:  tweepy object making up a tweet
@@ -36,9 +252,13 @@ class TweetDal:
         """
         DLlogger.info('insert_tweet ')
 
+        self.get_tweetDict(tweet, jsonstr)
+        return
+
         #create object
         tweet_obj = Tweet(id=tweet.id,
                           created_at=tweet.created_at)
+
 
         twScrap = json.loads(jsonstr)
 
@@ -436,18 +656,22 @@ class TweetDal:
             print (str(e))
 
     def tweetExists(self, tweetID):
-        DLlogger.info('tweetExists ')
+        DLlogger.info('tweetExists %s', tweetID)
 
-        query = self.session.query(Tweet)
-        query = query.options(load_only('id'))
-        id = query.filter(Tweet.id==tweetID).first()
-
-        if id == None:
-            DLlogger.info('There is no tweet named %s' % tweetID)
+        if tweetID == None:
             return False
-        else:
-            DLlogger.info('Tweet %s found ' % tweetID)
-            return True
+
+        sqltxt = "select count(*) from tweets where tweets.id = {}".format(tweetID)
+        res = self.session.execute(sqltxt)
+
+        for row in res:
+            if row[0]==1:
+                DLlogger.info('Tweet %s found ' % tweetID)
+                return True
+            else:
+                DLlogger.info('There is no tweet named %s' % tweetID)
+                return False
+
 
     def jobExists(self, jobtype, tweetID):
         DLlogger.info('tweetExists ')
@@ -540,9 +764,6 @@ class TweetDal:
         if hasattr(user, "verified"): user_obj['verified'] = user.verified
 
         ins = User.__table__.insert().prefix_with('IGNORE').values( user_obj )
-
-
-
 
         try:
             self.session.execute(ins)
