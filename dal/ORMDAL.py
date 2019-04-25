@@ -3,7 +3,7 @@ import logging, sys, json, random
 from datetime import datetime
 from .tweet import Tweet, Job, User, Mention, Hashtag, Url, Symbol,Media, Project
 from .base import create_mysql_pool, Base
-from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker, load_only
 import warnings, MySQLdb
 warnings.filterwarnings('ignore', category=MySQLdb.Warning)
 
@@ -438,7 +438,9 @@ class TweetDal:
     def tweetExists(self, tweetID):
         DLlogger.info('tweetExists ')
 
-        id = self.session.query(Tweet.id).filter(Tweet.id==tweetID).first()
+        query = self.session.query(Tweet)
+        query = query.options(load_only('id'))
+        id = query.filter(Tweet.id==tweetID).first()
 
         if id == None:
             DLlogger.info('There is no tweet named %s' % tweetID)
@@ -449,8 +451,9 @@ class TweetDal:
 
     def jobExists(self, jobtype, tweetID):
         DLlogger.info('tweetExists ')
-
-        id = self.session.query(Job.job_type,Job.payload).filter(Job.job_type == jobtype).filter(Job.payload==tweetID).first()
+        query = self.session.query(Job)
+        query = query.options(load_only('job_type','payload'))
+        id = query.filter(Job.job_type == jobtype).filter(Job.payload==tweetID).first()
 
         if id == None:
             DLlogger.info('There is no job[%s] named %s' , jobtype, tweetID)
@@ -461,8 +464,9 @@ class TweetDal:
 
     def userExists(self, userID):
         DLlogger.info('userExists')
-
-        id = self.session.query(User.user_id).filter(User.user_id==userID).first()
+        query = self.session.query(User)
+        query = query.options(load_only('user_id'))
+        id = query.filter(User.user_id==userID).first()
 
         if id == None:
             DLlogger.info('There is no user named %s' % userID)
