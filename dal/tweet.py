@@ -119,6 +119,7 @@ class User(Base):
     is_translation_enabled = Column(Boolean)
     is_translator = Column(Boolean)
     notifications = Column(Boolean)
+    category = Column(String(32))
 
 class Mention(Base):
     __tablename__ = 'mentions'

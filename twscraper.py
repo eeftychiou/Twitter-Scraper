@@ -7,6 +7,8 @@ import threading
 import json
 import time
 from multiprocessing import Pool,Process
+import logging
+import logging.config
 
 
 from datetime import datetime, timedelta
@@ -91,36 +93,12 @@ def main():
         return
 
 
-    #TODO load criteria from ini file
-    searchTerms = 'refugee OR réfugié OR rifugiato OR flüchtling OR flykting OR ' \
-                  'mülteci OR menekült OR refugees OR refugeeswelcome OR refugeecrisis OR ' \
-                  'refugeesGR OR refugeeconvoy'
-
-    # 1700 Replies https://twitter.com/PeteButtigieg/status/1112349547471273984
-    # searchTerms = 'potential refugee crisis caused by great suffering in Central America'
-    # dateFrom = "2019-03-31"
-    # dateToo = "2019-04-01"
-
-
-    # 15 replies or so
-    # searchTerms = 'refugee crisis Venezuelan Usurper Maduro'
-    # dateFrom = "2019-03-19"
-    # dateToo = "2019-03-20"
-
-    # project tweets
-    searchTerms = 'displaced OR immigrant OR migrant OR migration OR refugee OR asylum seeker OR trafficking OR border'
-    dateFrom = "2016-01-01"
-    dateToo = "2016-05-31"
 
     terms = config.get('webscraper','terms').strip().split(',')
     searchTerms = ' OR '.join(terms)
     dateFrom = config.get('webscraper','dateFrom')
     dateToo = config.get('webscraper','dateToo')
 
-    # mixed tweets 25 root tweets
-    # searchTerms = 'black hole heart'
-    # dateFrom = "2019-04-01"
-    # dateToo = "2019-04-03"
 
     interval = config.getint('webscraper', 'interval')
     maxTweetPerInterval = config.getint('webscraper', 'maxTweetPerInterval')
@@ -410,8 +388,7 @@ def testing():
 
 
 if __name__ == '__main__':
-    import logging
-    import logging.config
+
 
     logging.config.fileConfig('logConfig.cfg')
 
