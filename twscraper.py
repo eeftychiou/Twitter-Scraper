@@ -150,11 +150,10 @@ def main():
         tweets = TM.getTweets(tweetCriteria)
 
         if useProxy:
-            now = datetime.now()
-            if (now.minute % 10) == 0:
-                logger.info("Proxies in list are: {}".format(' '.join(map(str, TM.proxies))))
-                logger.info("Proxies Weights in list are: {}".format(' '.join(map(str, TM.proxiesWeights))))
-                logger.info("Proxies Weights len [%i] sum [%i]", len(TM.proxiesWeights), sum(TM.proxiesWeights))
+
+            logger.info("Proxies in list are: {}".format(' '.join(map(str, TM.proxies))))
+            logger.info("Proxies Weights in list are: {}".format(' '.join(map(str, TM.proxiesWeights))))
+            logger.info("Proxies Weights len [%i] sum [%i]", len(TM.proxiesWeights), sum(TM.proxiesWeights))
 
 
 
