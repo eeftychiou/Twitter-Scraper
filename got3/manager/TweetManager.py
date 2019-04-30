@@ -68,6 +68,7 @@ class TweetManager:
         receiveBuffer : callable, a function that will be called upon a getting next `bufferLength' tweets
         bufferLength: int, the number of tweets to pass to `receiveBuffer' function
         """
+        self.TMlogger.info(" * scraping : %s ", tweetCriteria.getSettingsStr())
         results = []
         resultsAux = []
         cookieJar = http.cookiejar.CookieJar()
@@ -186,6 +187,9 @@ class TweetManager:
             if receiveBuffer and len(resultsAux) > 0:
                 receiveBuffer(resultsAux)
                 resultsAux = []
+
+
+        self.TMlogger.info("*Finished * Added[%i] tweets, Total [%i] ", len(results), len(self.tweets))
 
         comments = []
         if tweetCriteria.saveComments:
