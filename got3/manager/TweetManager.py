@@ -110,7 +110,7 @@ class TweetManager:
                 scrapedTweets.remove('div.withheld-tweet')
                 tweets = scrapedTweets('div.js-stream-tweet')
 
-
+                self.TMlogger.info(" * Processing : %i  tweets", len(tweets))
                 if len(tweets) == 0:
                     break
 
@@ -331,6 +331,7 @@ class TweetManager:
 
             try:
                 dataJson = json.loads(s_json)
+                self.TMlogger.error("items_html [%i]",len(dataJson['items_html'].strip()))
                 if len(dataJson['items_html'].strip()) == 0:
                     tries = tries + 5
                     continue
@@ -577,7 +578,9 @@ class TweetManager:
 
             try:
                 dataJson = json.loads(s_json)
+                self.TMlogger.error("items_html [%i]",len(dataJson['items_html'].strip()))
                 if len(dataJson['items_html'].strip()) == 0:
+
                     tries = tries + 5
                     continue
                 break
