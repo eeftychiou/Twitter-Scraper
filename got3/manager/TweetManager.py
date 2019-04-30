@@ -115,7 +115,6 @@ class TweetManager:
                     break
 
 
-
                 for tweetHTML in tweets:
                     tweetPQ = PyQuery(tweetHTML)
                     tweet = models.Tweet()
