@@ -71,6 +71,11 @@ def main():
         TM.proxiesWeights = [TM.retries] * len(TM.proxies)
 
 
+        logger.info("Proxies in list are: {}".format(' '.join(map(str, TM.proxies))))
+        logger.info("Proxies Weights in list are: {}".format(' '.join(map(str, TM.proxiesWeights))))
+        logger.info("Proxies Weights len [%i] sum [%i]", len(TM.proxiesWeights), sum(TM.proxiesWeights))
+
+
     # start consumer and continue scrapping
     consumersEnabled = config.getboolean("consumers", 'enabled')
     if consumersEnabled:
