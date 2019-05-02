@@ -9,6 +9,7 @@ import time
 from multiprocessing import Pool,Process
 import logging
 import logging.config
+import urllib.parse as urlparse
 
 
 from datetime import datetime, timedelta
@@ -89,8 +90,8 @@ def main():
 
 
     if not webscraper:
-        logger.info("Websraper is disabled * exiting main thread *")
-        return
+        logger.info("Webscraper is disabled * exiting main thread *")
+        exit(0)
 
 
 
@@ -166,6 +167,9 @@ def main():
 
 
     logger.info('Finished Processing')
+    logger.info('Waiting for consumers')
+    for worker in TW_process:
+        worker.join()
 
 
 
@@ -215,6 +219,7 @@ def TWconsumer(toggle):
         webscraper = config.getboolean('consumers','webscraper')
         # get proxy settings
         proxies, useProxy, proxyRetries = tools.get_proxy_cfg(config, TWlogger)
+        useProxy = config.getboolean('consumers', 'useProxy')
 
         TMW.useProxy = useProxy
         if useProxy:
@@ -278,19 +283,29 @@ def processURL(TMW, TWdbacc, TWlogger, maxComments, saveComments, saveCommentsof
     TWlogger.info("TSU Processing %i %ss", len(ids), toggle)
     for scr_tweet in ids:
         tWscrap = json.loads(ids[scr_tweet])
-        TWlogger.info("TSU Processing %s", tWscrap['url'])
-        tweetCriteria = got.manager.TweetCriteria().setMaxTweets(-1). \
-            setSaveComments(saveComments). \
-            setMaxComments(maxComments). \
-            setSaveCommentsofComments(saveCommentsofComments). \
-            setProjId(tWscrap['projectID'])
         urlstr = tWscrap.get('url')
-        if urlstr==None:
-            TWlogger.error("Error url not found in json")
-            exit(1)
+        TWlogger.info("TSU Processing %s", urlstr)
 
 
-        stTweet = TMW.getTweets(tweetCriteria, url=urlstr)
+
+        searchTerms = tWscrap['querySearch']
+        dtItfrStr = tWscrap['since']
+        dtIttooStr = tWscrap['until']
+        maxTweetPerInterval = tWscrap['maxTweets']
+        proj_id = tWscrap['projectID']
+        refcurs = tWscrap.get('RefCursor') or ''
+
+        tweetCriteria = got.manager.TweetCriteria().setQuerySearch(searchTerms).\
+            setSince(dtItfrStr).\
+            setUntil(dtIttooStr).\
+            setMaxTweets(maxTweetPerInterval).\
+            setSaveComments(saveComments).\
+            setMaxComments(maxComments).\
+            setSaveCommentsofComments(saveCommentsofComments).\
+            setProjId(proj_id).setRefCursor(refcurs)
+
+
+        stTweet = TMW.getTweets(tweetCriteria)
 
         if stTweet == None:
             TWlogger.info("TSU * Could not scrape URL [%s]", urlstr)

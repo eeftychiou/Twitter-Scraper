@@ -148,3 +148,28 @@ class TweetCriteria:
 
         str = ', '.join("%s: %s" % item for item in attrs.items())
         return str
+
+    def getCriteriaDict(self):
+
+        criteriaDict = {}
+        if hasattr(self,'username'): criteriaDict['username'] = self.username
+        if hasattr(self, 'since'): criteriaDict['since'] = self.since
+        if hasattr(self, 'until'): criteriaDict['until'] = self.until
+        if hasattr(self, 'maxComments'): criteriaDict['maxComments'] = self.maxComments
+        if hasattr(self, 'maxTweets'): criteriaDict['maxTweets'] = self.maxTweets
+        if hasattr(self, 'projectID'): criteriaDict['projectID'] = self.projectID
+        if hasattr(self, 'querySearch'): criteriaDict['querySearch'] = self.querySearch
+        if hasattr(self, 'saveComments'): criteriaDict['saveComments'] = self.saveComments
+        if hasattr(self, 'saveCommentsofComments'): criteriaDict['saveCommentsofComments'] = self.saveCommentsofComments
+        if hasattr(self, 'topTweets'): criteriaDict['topTweets'] = self.topTweets
+        if hasattr(self, 'RefCursor'): criteriaDict['RefCursor'] = self.RefCursor
+        if hasattr(self, 'statusID'): criteriaDict['statusID'] = self.statusID
+        if hasattr(self, 'lang'): criteriaDict['lang'] = self.lang
+        if hasattr(self, 'within'): criteriaDict['within'] = self.within
+        if hasattr(self, 'near'): criteriaDict['near'] = self.near
+
+        return criteriaDict
+
+    def setRefCursor(self, refcurs):
+        self.RefCursor = refcurs
+        return self
