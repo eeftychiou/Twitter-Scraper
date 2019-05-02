@@ -3,7 +3,7 @@
 import json, re, datetime, sys, random, http.cookiejar, time
 import urllib.request, urllib.parse, urllib.error
 from pyquery import PyQuery
-import ssl
+import ssl, uuid, configparser
 from urllib.error import HTTPError, URLError
 import socket, logging
 
@@ -58,7 +58,7 @@ class TweetManager:
 
 
 
-    def getTweets(self, tweetCriteria, receiveBuffer=None, bufferLength=100):
+    def getTweets(self, tweetCriteria, receiveBuffer=None, bufferLength=100, url = None):
         """Get tweets that match the tweetCriteria parameter
         A static method.
 
@@ -183,6 +183,9 @@ class TweetManager:
                         active = False
                         break
 
+                if jsonstr['has_more_items'] == False:
+                    break
+
             if receiveBuffer and len(resultsAux) > 0:
                 receiveBuffer(resultsAux)
                 resultsAux = []
@@ -209,7 +212,7 @@ class TweetManager:
         return results
 
 
-    def getTimelineJsonResponse(self, tweetCriteria, refreshCursor, cookieJar):
+    def getTimelineJsonResponse(self, tweetCriteria, refreshCursor, cookieJar, urlstr=None):
         """Invoke an HTTP query to Twitter.
         Should not be used as an API function. A static method.
         """
@@ -258,8 +261,11 @@ class TweetManager:
             urlLang = ''
         url = url % (urllib.parse.quote(urlGetData.strip()), urlLang, urllib.parse.quote(refreshCursor))
 
+        # resume where we left of
+        if urlstr:
+            url = urlstr
 
-
+        self.TMlogger.info("Opening [%s]", url)
         tries=0
         while tries < self.retries:
 
@@ -284,7 +290,7 @@ class TweetManager:
                 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookieJar))
             opener.addheaders = headers
 
-            self.TMlogger.info("Opening [%s]",url)
+
             self.TMlogger.debug("Headers [%s]".join(h[0] + ': ' + h[1] for h in headers))
 
 
@@ -292,24 +298,45 @@ class TweetManager:
                 time.sleep(0.3)
                 response = opener.open(url, timeout=1)
                 jsonResponse = response.read()
-            except HTTPError as error:
-                self.TMlogger.info("An error occured during an HTTP request: %s", str(error))
-                tries += 5
-                continue
-            except URLError or TimeoutError as error:
-                self.TMlogger.info('UrlOpen Error [%s] ' % str(error) )
+            except Exception as e:
+                self.TMlogger.info("An error ocured during an HTTP request: %s" ,str(e))
+                #self.TMlogger.info("Try to open in browser: https://twitter.com/search?q=%s&src=typd" % urllib.parse.quote(urlGetData))
+
                 if self.useProxy:
-                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
+                    if self.proxiesWeights[self.proxies.index(curproxy)]>0:
+                        self.proxiesWeights[self.proxies.index(curproxy)] -= 1
+
+                    if sum(self.proxiesWeights)< len(self.proxiesWeights):
+                        self.TMlogger.info("Proxies in list are: {}".format(' '.join(map(str, self.proxies))))
+                        self.TMlogger.info("Proxies Weights in list are: {}".format(' '.join(map(str, self.proxiesWeights))))
+                        self.TMlogger.info("Proxies Weights len [%i] sum [%i]", len(self.proxiesWeights), sum(self.proxiesWeights))
+                        self.TMlogger.info("Refreshing Proxies")
+                        config = configparser.RawConfigParser()
+                        config.read('config.ini')
+                        proxies, useProxy, proxyRetries = tools.get_proxy_cfg(config, self.TMlogger)
+                        self.proxies = proxies
+                        self.retries = proxyRetries
+                        self.proxiesWeights = [self.retries] * len(self.proxies)
+
+
                 tries = tries + 1
-                if tries>=self.retries:
+                if tries >= self.retries:
                     self.TMlogger.error("Exceeded retries")
                     self.TMlogger.error("Skipping [%s]" %url)
+                    encoded = uuid.uuid3(uuid.NAMESPACE_URL, url)
+                    if not self.TMdal.jobExists('tweetURL', encoded):
+                        self.TMlogger.error("Adding URL to Job queue")
+                        urldict = {'url': url}
+
+                        self.TMdal.add_job('tweetURL', 0,(encoded, json.dumps(urldict)))
+                    else:
+                        self.TMlogger.error("URL exists in Job queue")
                     return None
+                self.TMlogger.info("Retrying - Tries: %i",tries)
                 continue
-            except Exception as e:
-                self.TMlogger.info("An error occured during an HTTP request: %s" ,str(e))
-                self.TMlogger.info("Try to open in browser: https://twitter.com/search?q=%s&src=typd" % urllib.parse.quote(urlGetData))
-                continue
+
+
+
 
 
 
@@ -319,18 +346,28 @@ class TweetManager:
                 s_json = jsonResponse.decode()
             except:
                 self.TMlogger.error("Invalid response from Twitter: ", url)
+                #some proxies return html with other info which cannot be decoded
                 if self.useProxy:
-                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
+                    if self.proxiesWeights[self.proxies.index(curproxy)]>0:
+                        self.proxiesWeights[self.proxies.index(curproxy)] -= 1
                 if tries>=self.retries:
                     self.TMlogger.error("decode Exceeded retries")
                     self.TMlogger.error("Skipping [%s]" %url)
+                    encoded = uuid.uuid3(uuid.NAMESPACE_URL, url)
+                    if not self.TMdal.jobExists('tweetURL', encoded):
+                        self.TMlogger.error("Adding URL to Job queue")
+                        urldict = {'url': url}
+
+                        self.TMdal.add_job('tweetURL', 0,(encoded, json.dumps(urldict)))
+                    else:
+                        self.TMlogger.error("URL exists in Job queue")
                     return None
-                tries = tries + 5
+                tries = tries + 1
                 continue
 
             try:
                 dataJson = json.loads(s_json)
-                self.TMlogger.error("items_html [%i]",len(dataJson['items_html'].strip()))
+                self.TMlogger.info("items_html [%i]",len(dataJson['items_html'].strip()))
                 if len(dataJson['items_html'].strip()) == 0:
                     tries = tries + 5
                     continue
@@ -338,11 +375,20 @@ class TweetManager:
             except Exception as e:
                 self.TMlogger.debug("Error parsing JSON: %s \n %s \n Exception[%s]" , s_json, url, str(e))
                 if self.useProxy:
-                    self.proxiesWeights[self.proxies.index(curproxy)] -= 1
+                    if self.proxiesWeights[self.proxies.index(curproxy)]>0:
+                        self.proxiesWeights[self.proxies.index(curproxy)] -= 1
                 tries = tries + 5
                 if tries >= self.retries:
                     self.TMlogger.error("loads Exceeded retries")
                     self.TMlogger.error("Skipping [%s]" % url)
+                    encoded = uuid.uuid3(uuid.NAMESPACE_URL, url)
+                    if not self.TMdal.jobExists('tweetURL', encoded):
+                        self.TMlogger.error("Adding URL to Job queue")
+                        urldict = {'url': url}
+
+                        self.TMdal.add_job('tweetURL', 0, (encoded, json.dumps(urldict)))
+                    else:
+                        self.TMlogger.error("URL exists in Job queue")
                     return None
 
                 continue
