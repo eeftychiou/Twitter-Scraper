@@ -207,7 +207,7 @@ def TWconsumer(toggle):
 
         TWlogger.info("%s - Connected to Twitter Api: %s",toggle, user._api.last_response.status_code)
 
-    elif toggleParse[0] =='tweet':
+    elif toggleParse[0] in ['tweet','tweetURL']:
 
         saveComments = config.getboolean('webscraper','saveComments')
         saveCommentsofComments = config.getboolean('webscraper','saveCommentsofComments')
@@ -241,6 +241,9 @@ def TWconsumer(toggle):
         elif toggleParse[0] ==' tweet' and webscraper == False:
             TWlogger.info("%s - TS * Tweet Scrapper Disabled", toggle)
             return
+        elif toggleParse[0] == 'tweetURL':
+            #process failed URLs from main process
+            processURL(TMW, TWdbacc, TWlogger, maxComments, saveComments, saveCommentsofComments,toggle,useProxy)
 
         StopCmd = TWdbacc.getStops()
 
@@ -254,6 +257,52 @@ def TWconsumer(toggle):
 
 
 
+def processURL(TMW, TWdbacc, TWlogger, maxComments, saveComments, saveCommentsofComments,toggle,useProxy):
+    TWlogger.info("Entered")
+
+    limit = 5
+    type = toggle.split('-')
+    ids = TWdbacc.get_jobs(type[0], limit,0)
+    TWlogger.info("Got %i URLs",len(ids))
+    if len(ids) == 0:
+        time.sleep(60)
+        return
+    if useProxy:
+        now = datetime.now()
+        if (now.minute%10)==0:
+            TWlogger.info("Proxies in list are: {}".format(' '.join(map(str, TMW.proxies))))
+            TWlogger.info("Proxies Weights in list are: {}".format(' '.join(map(str, TMW.proxiesWeights))))
+            TWlogger.info("Proxies Weights len [%i] sum [%i]", len(TMW.proxiesWeights), sum(TMW.proxiesWeights))
+    TWlogger.info("TSU * Started")
+    TWlogger.info("URLs UUIDs {}".format(' '.join(map(str, ids))))
+    TWlogger.info("TSU Processing %i %ss", len(ids), toggle)
+    for scr_tweet in ids:
+        tWscrap = json.loads(ids[scr_tweet])
+        TWlogger.info("TSU Processing %s", tWscrap['url'])
+        tweetCriteria = got.manager.TweetCriteria().setMaxTweets(-1). \
+            setSaveComments(saveComments). \
+            setMaxComments(maxComments). \
+            setSaveCommentsofComments(saveCommentsofComments). \
+            setProjId(tWscrap['projectID'])
+        urlstr = tWscrap.get('url')
+        if urlstr==None:
+            TWlogger.error("Error url not found in json")
+            exit(1)
+
+
+        stTweet = TMW.getTweets(tweetCriteria, url=urlstr)
+
+        if stTweet == None:
+            TWlogger.info("TSU * Could not scrape URL [%s]", urlstr)
+            TWdbacc.increament_job("tweetURL", scr_tweet)
+            continue
+        else:
+            TWdbacc.complete_job("tweetURL", scr_tweet)
+
+        TWlogger.info("TSU Done Processing URL  %s with %i tweets", urlstr, len(stTweet))
+
+    TWlogger.info("tweetURL * Finished")
+    return
 
 
 

@@ -69,6 +69,8 @@ class TweetManager:
         bufferLength: int, the number of tweets to pass to `receiveBuffer' function
         """
         self.TMlogger.info(" * scraping : %s ", tweetCriteria.getSettingsStr())
+        if url:
+            self.TMlogger.info("* URL Mode : %s ", url)
         results = []
         resultsAux = []
         cookieJar = http.cookiejar.CookieJar()
@@ -98,7 +100,7 @@ class TweetManager:
 
             active = True
             while active:
-                jsonstr = self.getTimelineJsonResponse(tweetCriteria, refreshCursor, cookieJar)
+                jsonstr = self.getTimelineJsonResponse(tweetCriteria, refreshCursor, cookieJar, urlstr=url)
                 if jsonstr==None:
                     break
                 if len(jsonstr['items_html'].strip()) == 0 :
@@ -217,6 +219,8 @@ class TweetManager:
         Should not be used as an API function. A static method.
         """
         self.TMlogger.info("Entered * criteria[%s]", tweetCriteria.getSettingsStr())
+        if urlstr:
+            self.TMlogger.info("Url Mode: %s",urlstr)
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -326,7 +330,9 @@ class TweetManager:
                     encoded = uuid.uuid3(uuid.NAMESPACE_URL, url)
                     if not self.TMdal.jobExists('tweetURL', encoded):
                         self.TMlogger.error("Adding URL to Job queue")
-                        urldict = {'url': url}
+                        urldict = {}
+                        urldict['url'] = url
+                        urldict['projectID'] = tweetCriteria.projectID
 
                         self.TMdal.add_job('tweetURL', 0,(encoded, json.dumps(urldict)))
                     else:
@@ -356,8 +362,9 @@ class TweetManager:
                     encoded = uuid.uuid3(uuid.NAMESPACE_URL, url)
                     if not self.TMdal.jobExists('tweetURL', encoded):
                         self.TMlogger.error("Adding URL to Job queue")
-                        urldict = {'url': url}
-
+                        urldict = {}
+                        urldict['url'] = url
+                        urldict['projectID'] = tweetCriteria.projectID
                         self.TMdal.add_job('tweetURL', 0,(encoded, json.dumps(urldict)))
                     else:
                         self.TMlogger.error("URL exists in Job queue")
@@ -384,8 +391,9 @@ class TweetManager:
                     encoded = uuid.uuid3(uuid.NAMESPACE_URL, url)
                     if not self.TMdal.jobExists('tweetURL', encoded):
                         self.TMlogger.error("Adding URL to Job queue")
-                        urldict = {'url': url}
-
+                        urldict = {}
+                        urldict['url'] = url
+                        urldict['projectID'] = tweetCriteria.projectID
                         self.TMdal.add_job('tweetURL', 0, (encoded, json.dumps(urldict)))
                     else:
                         self.TMlogger.error("URL exists in Job queue")
