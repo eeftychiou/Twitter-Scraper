@@ -433,8 +433,8 @@ def processTweetApi(TWdbacc, TWlogger, api, toggle):
     TWlogger.info("%s - Adding Processed tweets to Database",toggle)
     for tweet in api_tweets:
         try:
-            if not TWdbacc.tweetExists(tweet.id_str):
-                TWdbacc.add_tweet(tweet, ids[tweet.id_str])
+            #if not TWdbacc.tweetExists(tweet.id_str):
+            TWdbacc.add_tweet(tweet, ids[tweet.id_str])
 
         except Exception as e:
             print("Exception Worker unable to process tweet ", tweet.id_str, str(e))

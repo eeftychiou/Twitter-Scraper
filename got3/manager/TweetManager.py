@@ -188,8 +188,8 @@ class TweetManager:
                         active = False
                         break
 
-                if jsonstr['has_more_items'] == False:
-                    break
+                # if jsonstr['has_more_items'] == False:
+                #     break
 
             if receiveBuffer and len(resultsAux) > 0:
                 receiveBuffer(resultsAux)
@@ -371,9 +371,9 @@ class TweetManager:
             try:
                 dataJson = json.loads(s_json)
                 self.TMlogger.info("items_html [%i]",len(dataJson['items_html'].strip()))
-                if len(dataJson['items_html'].strip()) == 0:
-                    tries = tries + 5
-                    continue
+                # if len(dataJson['items_html'].strip()) == 0:
+                #     tries = tries + 5
+                #     continue
                 break
             except Exception as e:
                 self.TMlogger.debug("Error parsing JSON: %s \n %s \n Exception[%s]" , s_json, url, str(e))
