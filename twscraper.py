@@ -95,7 +95,9 @@ def main():
 
 
     if not webscraper:
-        logger.info("Webscraper is disabled * exiting main thread *")
+        logger.info("Webscraper is disabled * waiting for workers *")
+        for worker in TW_process:
+            worker.join()
         exit(0)
 
 
