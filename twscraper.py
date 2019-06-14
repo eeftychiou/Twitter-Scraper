@@ -183,7 +183,7 @@ def main():
 
 # TODO move into own package
 def TWconsumer(toggle):
-
+    import os
 
 
     logging.config.fileConfig('logConfig.cfg')
@@ -201,6 +201,9 @@ def TWconsumer(toggle):
     toggleParse = toggle.strip().split('-')
 
     if toggleParse[0] in ['userApi','tweetApi']:
+
+        # del os.environ['HTTPS_PROXY']
+        # del os.environ['HTTP_PROXY']
         consumer_key = config.get('twitter credentials','consumer_key')
         consumer_secret = config.get('twitter credentials','consumer_secret')
 
@@ -432,8 +435,10 @@ def processTweetApi(TWdbacc, TWlogger, api, toggle):
     TWlogger.info("%s - Tweepy Processing %i %s",toggle, len(ids), toggle)
     TWlogger.info("Statusids {}".format(' '.join(map(str, ids))))
     api_tweets = api.statuses_lookup(list(ids.keys()), include_entities=True, tweet_mode='extended')
-    TWlogger.info("%s - Adding Processed tweets to Database",toggle)
+    TWlogger.info("%s - Adding %i Processed tweets to Database",toggle,len(api_tweets))
+
     for tweet in api_tweets:
+
         try:
             #if not TWdbacc.tweetExists(tweet.id_str):
             TWdbacc.add_tweet(tweet, ids[tweet.id_str])
