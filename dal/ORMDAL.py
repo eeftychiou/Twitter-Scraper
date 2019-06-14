@@ -6,6 +6,7 @@ from .base import create_mysql_pool, Base
 from sqlalchemy.orm import scoped_session, sessionmaker, load_only
 from sqlalchemy.sql import text
 import warnings, MySQLdb
+import requests
 warnings.filterwarnings('ignore', category=MySQLdb.Warning)
 
 import tools
@@ -801,3 +802,34 @@ class TweetDal:
         return prj_obj.proj_id
 
 
+    def update_urls(self, n ):
+        """
+        gets a number of specified urls pending jobs from the queue and update them accordingly
+        :param jobtype:
+        :return: a list of ids, this can be tweet_ids, user_ids but not mixed within the same list
+        """
+        DLlogger.info('get_url[%i] - %s ', n, "URL")
+
+        session = requests.Session()  # so connections are recycled
+
+        urls = self.session.query(Url).filter(Url.expanded == False).limit(n)
+
+        idlist = {}
+        for urlrow in urls:
+            url = urlrow.url
+            resp = session.head(url, allow_redirects=True)
+            urlrow.fully_expanded = resp.url
+            url.expanded = True
+
+
+
+
+
+        self.session.bulk_save_objects(urls)
+        self.session.commit()
+        self.session.flush()
+        self.session.close()
+
+        DLlogger.info('Found [%i] jobs ', len(idlist))
+
+        return idlist

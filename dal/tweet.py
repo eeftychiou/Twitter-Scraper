@@ -140,6 +140,9 @@ class Url(Base):
     url = Column(String(512))
     expanded_url = Column(Text)
     display_url = Column(Text)
+    fully_expanded = Column(Text)
+    expanded = Column(Boolean)
+
 
 class Hashtag(Base):
     __tablename__ = 'hashtags'
