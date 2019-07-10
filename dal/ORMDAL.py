@@ -814,13 +814,38 @@ class TweetDal:
 
         urls = self.session.query(Url).filter(Url.expanded == False).limit(n)
 
-        idlist = {}
+        idlist = []
         for urlrow in urls:
             url = urlrow.url
-            resp = session.head(url, allow_redirects=True)
-            urlrow.fully_expanded = resp.url
-            url.expanded = True
+            try:
+                resp = session.head(url, allow_redirects=True)
 
+                if resp.status_code==200:
+                    urlrow.fully_expanded = resp.url
+                    urlrow.expanded = True
+                else:
+                    urlrow.fully_expanded = urlrow.display_url
+                    urlrow.expanded = True
+
+                idlist.append(urlrow.id)
+            except Exception as e:
+                DLlogger.error('get_url[%s] - %s ', url, str(e))
+                url = urlrow.display_url
+                try:
+                    resp = session.head(url, allow_redirects=True)
+
+                    if resp.status_code == 200:
+                        urlrow.fully_expanded = resp.url
+                        urlrow.expanded = True
+                    else:
+                        urlrow.fully_expanded = urlrow.display_url
+                        urlrow.expanded = False
+
+                    idlist.append(urlrow.id)
+                except Exception as d:
+                    DLlogger.error('get_url[%s] - %s ', url, str(e))
+
+                continue
 
 
 
@@ -830,6 +855,6 @@ class TweetDal:
         self.session.flush()
         self.session.close()
 
-        DLlogger.info('Found [%i] jobs ', len(idlist))
+        DLlogger.info('Updated [%i] URLS ', len(idlist))
 
         return idlist
