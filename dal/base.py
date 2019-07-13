@@ -41,10 +41,11 @@ def create_mysql_pool():
     # max_connections default for mysql = 100
     # set mysql connections to 90 and 5 for sqlalchemy buffer
     mysql_pool = create_engine(
-        'mysql://{user}:{passwd}@{host}/?charset=utf8mb4'.format(
+        'mysql://{user}:{passwd}@{host}:{port}/?charset=utf8mb4'.format(
             user=mysql_user,
             passwd=mysql_passwd,
-            host=mysql_host
+            host=mysql_host,
+            port = mysql_port
         ),
         pool_size=10,
         max_overflow=5,
@@ -68,11 +69,12 @@ def create_mysql_pool():
             db=mysql_db)
         )
     mysql_pool = create_engine(
-        'mysql://{user}:{passwd}@{host}/{db}?charset=utf8mb4'.format(
+        'mysql://{user}:{passwd}@{host}:{port}/{db}?charset=utf8mb4'.format(
             user=mysql_user,
             passwd=mysql_passwd,
             host=mysql_host,
-            db=mysql_db
+            db=mysql_db,
+            port = mysql_port
         ),
         pool_size=10,
         pool_recycle=3600,

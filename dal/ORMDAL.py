@@ -7,6 +7,12 @@ from sqlalchemy.orm import scoped_session, sessionmaker, load_only
 from sqlalchemy.sql import text
 import warnings, MySQLdb
 import requests
+import urllib
+import tldextract
+import re
+from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
+
 warnings.filterwarnings('ignore', category=MySQLdb.Warning)
 
 import tools
@@ -814,47 +820,83 @@ class TweetDal:
 
         urls = self.session.query(Url).filter(Url.expanded == False).limit(n)
 
-        idlist = []
-        for urlrow in urls:
-            url = urlrow.url
-            try:
-                resp = session.head(url, allow_redirects=True)
+        thread_pool = ThreadPoolExecutor(max_workers=n)
 
-                if resp.status_code==200:
-                    urlrow.fully_expanded = resp.url
-                    urlrow.expanded = True
-                else:
-                    urlrow.fully_expanded = urlrow.display_url
-                    urlrow.expanded = True
+        rowret=[]
 
-                idlist.append(urlrow.id)
-            except Exception as e:
-                DLlogger.error('get_url[%s] - %s ', url, str(e))
-                url = urlrow.display_url
+        with concurrent.futures.ThreadPoolExecutor(max_workers=n) as executor:
+            # Start the load operations and mark each future with its URL
+            future_to_url = {executor.submit(self.__check_url, url): url for url in urls}
+            for future in concurrent.futures.as_completed(future_to_url):
+                url = future_to_url[future]
                 try:
-                    resp = session.head(url, allow_redirects=True)
-
-                    if resp.status_code == 200:
-                        urlrow.fully_expanded = resp.url
-                        urlrow.expanded = True
-                    else:
-                        urlrow.fully_expanded = urlrow.display_url
-                        urlrow.expanded = False
-
-                    idlist.append(urlrow.id)
-                except Exception as d:
-                    DLlogger.error('get_url[%s] - %s ', url, str(e))
-
-                continue
+                    data = future.result()
+                    rowret.append(data)
+                except Exception as exc:
+                    print('%r generated an exception: %s' % (data.id, exc))
+                else:
+                    print('ID[%i] url[%r]  is domain %s' % (data.id,data.expanded_url, data.domain))
 
 
-
-
-        self.session.bulk_save_objects(urls)
+        self.session.bulk_save_objects(rowret)
         self.session.commit()
         self.session.flush()
         self.session.close()
 
-        DLlogger.info('Updated [%i] URLS ', len(idlist))
+        DLlogger.info('Updated [%i] URLS ', n)
 
-        return idlist
+        return
+
+    def __check_url(self, urlrow):
+        print(urlrow.expanded_url)
+        url = urlrow.expanded_url
+        try:
+            resp = requests.head(url, allow_redirects=True, timeout=30)
+
+
+            urlrow.fully_expanded = resp.url
+            urlrow.expanded = True
+
+
+            extr = tldextract.extract(urlrow.fully_expanded)
+            urlrow.domain = extr.domain
+            urlrow.subdomain = extr.subdomain
+            urlrow.suffix = extr.suffix
+
+
+        except Exception as e:
+            DLlogger.info('get_url[%s] - %s ', url, str(e))
+            url = urlrow.url
+            try:
+                resp = requests.head(url, allow_redirects=True, timeout=5)
+
+
+                urlrow.fully_expanded = resp.url
+                urlrow.expanded = True
+
+
+                extr = tldextract.extract(urlrow.fully_expanded)
+                urlrow.domain = extr.domain
+                urlrow.subdomain = extr.subdomain
+                urlrow.suffix = extr.suffix
+
+
+            except Exception as d:
+                DLlogger.info('get_url[%s] - %s ', url, str(e))
+                if 'host=' in str(d):
+                    hoststr = e.args[0].args[0]
+                    url = re.findall(r"'(.*?)'", hoststr)[0]
+
+                    extr = tldextract.extract(url)
+                    urlrow.domain = extr.domain
+                    urlrow.subdomain = extr.subdomain
+                    urlrow.suffix = extr.suffix
+                    urlrow.expanded = True
+                else:  # try to use expanded_url
+                    extr = tldextract.extract(urlrow.expanded_url)
+                    urlrow.domain = extr.domain
+                    urlrow.subdomain = extr.subdomain
+                    urlrow.suffix = extr.suffix
+                    urlrow.expanded = True
+
+        return urlrow

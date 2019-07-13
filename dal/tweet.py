@@ -141,6 +141,9 @@ class Url(Base):
     expanded_url = Column(Text)
     display_url = Column(Text)
     fully_expanded = Column(Text)
+    domain = Column(String(100))
+    subdomain = Column(String(45))
+    suffix = Column(String(45))
     expanded = Column(Boolean)
 
 
