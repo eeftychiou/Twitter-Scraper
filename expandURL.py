@@ -9,5 +9,5 @@ dbacc = dal.TweetDal()
 
 
 while True:
-    dbacc.update_urls(400)
-    print("Done 400 ")
+    dbacc.update_urls(500)
+    print("Done 500 ")
