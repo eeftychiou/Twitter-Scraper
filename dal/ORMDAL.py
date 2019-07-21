@@ -850,6 +850,7 @@ class TweetDal:
     def __check_url(self, urlrow):
         print(urlrow.expanded_url)
         url = urlrow.expanded_url
+
         try:
             resp = requests.head(url, allow_redirects=True, timeout=30)
 
@@ -897,6 +898,6 @@ class TweetDal:
                     urlrow.domain = extr.domain
                     urlrow.subdomain = extr.subdomain
                     urlrow.suffix = extr.suffix
-                    urlrow.expanded = True
+                    urlrow.expanded = False
 
         return urlrow
