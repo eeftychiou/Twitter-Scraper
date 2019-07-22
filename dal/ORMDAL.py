@@ -855,7 +855,7 @@ class TweetDal:
             resp = requests.head(url, allow_redirects=True, timeout=30)
 
             urlrow.fully_expanded = resp.url
-            urlrow.expanded = True
+            urlrow.expanded = 1
 
             extr = tldextract.extract(urlrow.fully_expanded)
             urlrow.domain = extr.domain
@@ -867,7 +867,7 @@ class TweetDal:
 
             if hasattr(e, "request") and hasattr(e.request, "url"):
                 urlrow.fully_expanded = e.request.url
-                urlrow.expanded = True
+                urlrow.expanded = 2
 
 
                 extr = tldextract.extract(urlrow.fully_expanded)
@@ -880,7 +880,7 @@ class TweetDal:
                     resp = requests.head(url, allow_redirects=True, timeout=5)
 
                     urlrow.fully_expanded = resp.url
-                    urlrow.expanded = True
+                    urlrow.expanded = 3
 
                     extr = tldextract.extract(urlrow.fully_expanded)
                     urlrow.domain = extr.domain
@@ -898,10 +898,10 @@ class TweetDal:
                         urlrow.domain = extr.domain
                         urlrow.subdomain = extr.subdomain
                         urlrow.suffix = extr.suffix
-                        urlrow.expanded = True
+                        urlrow.expanded = 4
                     elif hasattr(d, "request") and hasattr(d.request, "url"):
                         urlrow.fully_expanded = d.request.url
-                        urlrow.expanded = True
+                        urlrow.expanded = 5
 
 
                         extr = tldextract.extract(urlrow.fully_expanded)
@@ -913,6 +913,6 @@ class TweetDal:
                         urlrow.domain = extr.domain
                         urlrow.subdomain = extr.subdomain
                         urlrow.suffix = extr.suffix
-                        urlrow.expanded = False
+                        urlrow.expanded = 0
 
         return urlrow
