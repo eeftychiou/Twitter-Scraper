@@ -854,10 +854,8 @@ class TweetDal:
         try:
             resp = requests.head(url, allow_redirects=True, timeout=30)
 
-
             urlrow.fully_expanded = resp.url
             urlrow.expanded = True
-
 
             extr = tldextract.extract(urlrow.fully_expanded)
             urlrow.domain = extr.domain
@@ -866,13 +864,9 @@ class TweetDal:
 
 
         except Exception as e:
-            DLlogger.info('get_url[%s] - %s ', url, str(e))
-            url = urlrow.url
-            try:
-                resp = requests.head(url, allow_redirects=True, timeout=5)
 
-
-                urlrow.fully_expanded = resp.url
+            if hasattr(e, "request") and hasattr(e.request, "url"):
+                urlrow.fully_expanded = e.request.url
                 urlrow.expanded = True
 
 
@@ -880,24 +874,36 @@ class TweetDal:
                 urlrow.domain = extr.domain
                 urlrow.subdomain = extr.subdomain
                 urlrow.suffix = extr.suffix
+            else:
+                url = urlrow.url
+                try:
+                    resp = requests.head(url, allow_redirects=True, timeout=5)
 
-
-            except Exception as d:
-                DLlogger.info('get_url[%s] - %s ', url, str(e))
-                if 'host=' in str(d):
-                    hoststr = e.args[0].args[0]
-                    url = re.findall(r"'(.*?)'", hoststr)[0]
-
-                    extr = tldextract.extract(url)
-                    urlrow.domain = extr.domain
-                    urlrow.subdomain = extr.subdomain
-                    urlrow.suffix = extr.suffix
+                    urlrow.fully_expanded = resp.url
                     urlrow.expanded = True
-                else:  # try to use expanded_url
-                    extr = tldextract.extract(urlrow.expanded_url)
+
+                    extr = tldextract.extract(urlrow.fully_expanded)
                     urlrow.domain = extr.domain
                     urlrow.subdomain = extr.subdomain
                     urlrow.suffix = extr.suffix
-                    urlrow.expanded = False
+
+
+                except Exception as d:
+                    DLlogger.info('get_url[%s] - %s ', url, str(e))
+                    if 'host=' in str(d):
+                        hoststr = e.args[0].args[0]
+                        url = re.findall(r"'(.*?)'", hoststr)[0]
+
+                        extr = tldextract.extract(url)
+                        urlrow.domain = extr.domain
+                        urlrow.subdomain = extr.subdomain
+                        urlrow.suffix = extr.suffix
+                        urlrow.expanded = True
+                    else:  # try to use expanded_url
+                        extr = tldextract.extract(urlrow.expanded_url)
+                        urlrow.domain = extr.domain
+                        urlrow.subdomain = extr.subdomain
+                        urlrow.suffix = extr.suffix
+                        urlrow.expanded = False
 
         return urlrow

@@ -3,9 +3,16 @@ import requests
 
 dbacc = dal.TweetDal()
 
-# url = 'http://dlvr.it/BkXFrL'
+# url = 'http://goo.gl/P6bTaz'
 #
-# resp = requests.head(url,allow_redirects=True)
+# try:
+#     resp = requests.head(url,allow_redirects=True)
+# except Exception as d:
+#
+#     if hasattr(d,"request") and hasattr(d.request,"url"):
+#         print(d.request.url)
+#     else:
+#         pass
 
 
 while True:
