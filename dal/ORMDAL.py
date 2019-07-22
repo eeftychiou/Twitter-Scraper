@@ -899,6 +899,15 @@ class TweetDal:
                         urlrow.subdomain = extr.subdomain
                         urlrow.suffix = extr.suffix
                         urlrow.expanded = True
+                    elif hasattr(d, "request") and hasattr(d.request, "url"):
+                        urlrow.fully_expanded = d.request.url
+                        urlrow.expanded = True
+
+
+                        extr = tldextract.extract(urlrow.fully_expanded)
+                        urlrow.domain = extr.domain
+                        urlrow.subdomain = extr.subdomain
+                        urlrow.suffix = extr.suffix
                     else:  # try to use expanded_url
                         extr = tldextract.extract(urlrow.expanded_url)
                         urlrow.domain = extr.domain
