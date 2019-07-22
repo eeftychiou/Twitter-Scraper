@@ -144,7 +144,7 @@ class Url(Base):
     domain = Column(String(100))
     subdomain = Column(String(45))
     suffix = Column(String(45))
-    expanded = Column(Boolean)
+    expanded = Column(Integer)
 
 
 class Hashtag(Base):
