@@ -1,6 +1,6 @@
 import dal
 import requests
-from referer_parser import Referer
+#from referer_parser import Referer
 from urllib.parse import urlparse, parse_qs
 import tldextract
 
