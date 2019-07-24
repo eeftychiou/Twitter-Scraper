@@ -12,6 +12,7 @@ import tldextract
 import re
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
+from urllib.parse import urlparse, parse_qs
 
 warnings.filterwarnings('ignore', category=MySQLdb.Warning)
 
@@ -854,6 +855,12 @@ class TweetDal:
         try:
             resp = requests.head(url, allow_redirects=True, timeout=30)
 
+            parsed = urlparse(resp.url)
+            qs_parsed = parse_qs(parsed.query)
+
+            if 'url' in qs_parsed:
+                resp.url = qs_parsed['url'][0]
+
             urlrow.fully_expanded = resp.url
             urlrow.expanded = 1
 
@@ -913,6 +920,6 @@ class TweetDal:
                         urlrow.domain = extr.domain
                         urlrow.subdomain = extr.subdomain
                         urlrow.suffix = extr.suffix
-                        urlrow.expanded = 0
+                        urlrow.expanded = 10
 
         return urlrow
