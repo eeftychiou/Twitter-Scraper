@@ -873,6 +873,13 @@ class TweetDal:
         except Exception as e:
 
             if hasattr(e, "request") and hasattr(e.request, "url"):
+
+                parsed = urlparse(e.request.url)
+                qs_parsed = parse_qs(parsed.query)
+
+                if 'url' in qs_parsed:
+                    e.request.url = qs_parsed['url'][0]
+
                 urlrow.fully_expanded = e.request.url
                 urlrow.expanded = 2
 

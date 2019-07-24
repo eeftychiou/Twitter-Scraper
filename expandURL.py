@@ -1,14 +1,15 @@
 import dal
 import requests
-#from referer_parser import Referer
+from referer_parser import Referer
 from urllib.parse import urlparse, parse_qs
 import tldextract
 
 
 
-dbacc = dal.TweetDal()
 
-# url = 'http://bit.ly/1Sx6kNf'
+#
+#
+# url = 'http://www.bloomberg.com/news/articles/2015-06-28/isis-has-new-cash-cow-art-loot-it-s-peddling-on-ebay-facebook'
 #
 # try:
 #     resp = requests.head(url,allow_redirects=True)
@@ -36,6 +37,9 @@ dbacc = dal.TweetDal()
 # subdomain = extr.subdomain
 # suffix = extr.suffix
 
+
+
+dbacc = dal.TweetDal()
 while True:
     dbacc.update_urls(5000)
     print("Done 5000 ")
