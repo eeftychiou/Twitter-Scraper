@@ -69,5 +69,5 @@ import tldextract
 
 dbacc = dal.TweetDal()
 while True:
-    dbacc.update_urls(2)
+    dbacc.update_urls(5000)
     print("Done 5000 ")
