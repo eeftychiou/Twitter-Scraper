@@ -930,7 +930,8 @@ class TweetDal:
                         urlrow.expanded = 10
 
         if len(urlrow.domain)>100:
-            print("URL Domain too big", urlrow.domain)
+            print(urlrow.id," URL Domain too big. Expanded[",urlrow.expanded_url,"] Domain[", urlrow.domain, "] Fully expanded[", urlrow.fully_expanded, "]")
             urlrow.domain=urlrow.domain[0:100]
+            urlrow.expanded = 11
 
         return urlrow
