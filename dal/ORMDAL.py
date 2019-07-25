@@ -880,7 +880,7 @@ class TweetDal:
 
                 if 'url' in qs_parsed:
                     if qs_parsed['url'][0][0:4] == 'http':
-                        resp.url = qs_parsed['url'][0]
+                        e.request.url= qs_parsed['url'][0]
 
                 urlrow.fully_expanded = e.request.url
                 urlrow.expanded = 2
