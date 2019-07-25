@@ -4,38 +4,70 @@ import requests
 from urllib.parse import urlparse, parse_qs
 import tldextract
 
-
-
-
 #
 #
-# url = 'http://www.bloomberg.com/news/articles/2015-06-28/isis-has-new-cash-cow-art-loot-it-s-peddling-on-ebay-facebook'
+# url = 'http://bloom.bg/1fOohVA'
 #
 # try:
-#     resp = requests.head(url,allow_redirects=True)
-# except Exception as d:
+#     resp = requests.head(url, allow_redirects=True, timeout=30)
 #
-#     if hasattr(d,"request") and hasattr(d.request,"url"):
-#         print(d.request.url)
+#     parsed = urlparse(resp.url)
+#     qs_parsed = parse_qs(parsed.query)
+#
+#     Textr = tldextract.extract(parsed.hostname)
+#     Tdomain = Textr.domain
+#     Tsubdomain = Textr.subdomain
+#     Tsuffix = Textr.suffix
+#
+#
+#     if 'url' in qs_parsed and Tdomain not in ['bloomberg']:
+#         resp.url = qs_parsed['url'][0]
+#
+#     fully_expanded = resp.url
+#     expanded = 1
+#
+#     extr = tldextract.extract(fully_expanded)
+#     domain = extr.domain
+#     subdomain = extr.subdomain
+#     suffix = extr.suffix
+#
+#
+# except Exception as e:
+#
+#     if hasattr(e, "request") and hasattr(e.request, "url"):
+#
+#         parsed = urlparse(e.request.url)
+#         qs_parsed = parse_qs(parsed.query)
+#
+#         if 'url' in qs_parsed:
+#             e.request.url = qs_parsed['url'][0]
+#
+#         fully_expanded = e.request.url
+#         expanded = 2
+#
+#         extr = tldextract.extract(fully_expanded)
+#         domain = extr.domain
+#         subdomain = extr.subdomain
+#         suffix = extr.suffix
 #     else:
-#         pass
+#         url = url
+#         try:
+#             resp = requests.head(url, allow_redirects=True, timeout=5)
+#
+#             fully_expanded = resp.url
+#             expanded = 3
+#
+#             extr = tldextract.extract(fully_expanded)
+#             domain = extr.domain
+#             subdomain = extr.subdomain
+#             suffix = extr.suffix
+#
+#         except Exception as e:
+#             print("Exception:",str(e))
 #
 #
-# parsed = urlparse(resp.url)
-# qs_parsed = parse_qs(parsed.query)
-#
-#
-#
-# if 'url' in qs_parsed:
-#     resp.url = qs_parsed['url'][0]
-#
-# fully_expanded = resp.url
-# expanded = 1
-#
-# extr = tldextract.extract(fully_expanded)
-# domain = extr.domain
-# subdomain = extr.subdomain
-# suffix = extr.suffix
+
+
 
 
 

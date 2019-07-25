@@ -858,7 +858,12 @@ class TweetDal:
             parsed = urlparse(resp.url)
             qs_parsed = parse_qs(parsed.query)
 
-            if 'url' in qs_parsed:
+            Textr = tldextract.extract(parsed.hostname)
+            Tdomain = Textr.domain
+            Tsubdomain = Textr.subdomain
+            Tsuffix = Textr.suffix
+
+            if 'url' in qs_parsed and Tdomain not in ['bloomberg']:
                 resp.url = qs_parsed['url'][0]
 
             urlrow.fully_expanded = resp.url
@@ -877,8 +882,13 @@ class TweetDal:
                 parsed = urlparse(e.request.url)
                 qs_parsed = parse_qs(parsed.query)
 
-                if 'url' in qs_parsed:
-                    e.request.url = qs_parsed['url'][0]
+                Textr = tldextract.extract(parsed.hostname)
+                Tdomain = Textr.domain
+                Tsubdomain = Textr.subdomain
+                Tsuffix = Textr.suffix
+
+                if 'url' in qs_parsed and Tdomain not in ['bloomberg']:
+                    resp.url = qs_parsed['url'][0]
 
                 urlrow.fully_expanded = e.request.url
                 urlrow.expanded = 2
