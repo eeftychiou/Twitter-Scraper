@@ -836,8 +836,8 @@ class TweetDal:
                 except Exception as exc:
                     print('%r generated an exception: %s' % (data.id, exc))
                 else:
-                    print('ID[%i] url[%r]  is domain %s' % (data.id,data.expanded_url, data.domain))
-
+                    # print('ID[%i] url[%r]  is domain %s' % (data.id,data.expanded_url, data.domain))
+                    pass
 
         self.session.bulk_save_objects(rowret)
         self.session.commit()
@@ -928,5 +928,9 @@ class TweetDal:
                         urlrow.subdomain = extr.subdomain
                         urlrow.suffix = extr.suffix
                         urlrow.expanded = 10
+
+        if len(urlrow.domain)>100:
+            print("URL Domain too big", urlrow.domain)
+            urlrow.domain=urlrow.domain[0:100]
 
         return urlrow
