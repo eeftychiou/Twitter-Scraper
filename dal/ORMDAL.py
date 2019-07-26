@@ -904,13 +904,13 @@ class TweetDal:
                 urlrow.suffix = extr.suffix
 
                 if urlrow.domain == 'linkis':
-                    urlrow.extr = tldextract.extract(urlrow.fully_expanded[18:])
+                    extr = tldextract.extract(urlrow.fully_expanded[18:])
                     urlrow.domain = extr.domain
                     urlrow.subdomain = extr.subdomain
                     urlrow.suffix = extr.suffix
 
                 if urlrow.domain == 'ln' and urlrow.suffix == 'is':
-                    urlrow.extr = tldextract.extract(urlrow.fully_expanded[13:])
+                    extr = tldextract.extract(urlrow.fully_expanded[13:])
                     urlrow.domain = extr.domain
                     urlrow.subdomain = extr.subdomain
                     urlrow.suffix = extr.suffix
@@ -929,13 +929,13 @@ class TweetDal:
                     urlrow.suffix = extr.suffix
 
                     if urlrow.domain == 'linkis':
-                        urlrow.extr = tldextract.extract(urlrow.fully_expanded[18:])
+                        extr = tldextract.extract(urlrow.fully_expanded[18:])
                         urlrow.domain = extr.domain
                         urlrow.subdomain = extr.subdomain
                         urlrow.suffix = extr.suffix
 
                     if urlrow.domain == 'ln' and urlrow.suffix == 'is':
-                        urlrow.extr = tldextract.extract(urlrow.fully_expanded[13:])
+                        extr = tldextract.extract(urlrow.fully_expanded[13:])
                         urlrow.domain = extr.domain
                         urlrow.subdomain = extr.subdomain
                         urlrow.suffix = extr.suffix
