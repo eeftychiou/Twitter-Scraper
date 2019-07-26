@@ -876,6 +876,12 @@ class TweetDal:
                 urlrow.subdomain = extr.subdomain
                 urlrow.suffix = extr.suffix
 
+            if urlrow.domain=='ln' and urlrow.suffix=='is':
+                urlrow.extr = tldextract.extract(urlrow.fully_expanded[13:])
+                urlrow.domain = extr.domain
+                urlrow.subdomain = extr.subdomain
+                urlrow.suffix = extr.suffix
+
 
         except Exception as e:
 

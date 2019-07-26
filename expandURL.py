@@ -5,9 +5,9 @@ from urllib.parse import urlparse, parse_qs
 import tldextract
 
 
-
 #
-# url = 'http://ln.is/independent.co.uk/DK11c'
+#
+# url = 'http://ln.is/www.theguardian.com/rMQm0'
 #
 # try:
 #     resp = requests.head(url, allow_redirects=True, timeout=30)
@@ -32,6 +32,12 @@ import tldextract
 #
 #     if domain=='linkis':
 #         extr = tldextract.extract(fully_expanded[18:])
+#         domain = extr.domain
+#         subdomain = extr.subdomain
+#         suffix = extr.suffix
+#
+#     if domain=='ln' and suffix=='is':
+#         extr = tldextract.extract(fully_expanded[13:])
 #         domain = extr.domain
 #         subdomain = extr.subdomain
 #         suffix = extr.suffix
@@ -72,7 +78,7 @@ import tldextract
 #         except Exception as e:
 #             print("Exception:",str(e))
 #
-#
+
 
 
 
