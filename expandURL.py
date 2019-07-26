@@ -3,7 +3,7 @@ import requests
 
 from urllib.parse import urlparse, parse_qs
 import tldextract
-from urlextract import URLExtract
+
 
 
 #
