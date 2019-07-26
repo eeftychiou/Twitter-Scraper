@@ -3,10 +3,11 @@ import requests
 
 from urllib.parse import urlparse, parse_qs
 import tldextract
+from urlextract import URLExtract
+
 
 #
-#
-# url = 'http://bloom.bg/1fOohVA'
+# url = 'http://ln.is/independent.co.uk/DK11c'
 #
 # try:
 #     resp = requests.head(url, allow_redirects=True, timeout=30)
@@ -19,6 +20,8 @@ import tldextract
 #         if qs_parsed['url'][0][0:4]=='http':
 #             resp.url = qs_parsed['url'][0]
 #
+#
+#
 #     fully_expanded = resp.url
 #     expanded = 1
 #
@@ -26,6 +29,14 @@ import tldextract
 #     domain = extr.domain
 #     subdomain = extr.subdomain
 #     suffix = extr.suffix
+#
+#     if domain=='linkis':
+#         extr = tldextract.extract(fully_expanded[18:])
+#         domain = extr.domain
+#         subdomain = extr.subdomain
+#         suffix = extr.suffix
+#
+#     print(domain)
 #
 #
 # except Exception as e:
