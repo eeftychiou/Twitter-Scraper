@@ -5,9 +5,9 @@ from urllib.parse import urlparse, parse_qs
 import tldextract
 
 
-#
-#
-# url = 'http://ln.is/www.theguardian.com/rMQm0'
+
+
+# url = 'http://tmblr.co/Z8pDmw1q_Umcn'
 #
 # try:
 #     resp = requests.head(url, allow_redirects=True, timeout=30)
@@ -77,7 +77,7 @@ import tldextract
 #
 #         except Exception as e:
 #             print("Exception:",str(e))
-#
+
 
 
 
